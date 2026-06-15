@@ -112,3 +112,7 @@ npm run dev
 # Terminal 2 - Frontend  
 cd D:\AYSEL\frontend
 npm run dev
+
+
+npm list zod
+npm list @hookform/resolvers
