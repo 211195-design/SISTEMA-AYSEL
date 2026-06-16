@@ -14,8 +14,14 @@ export function useLogin() {
 
     try {
       const response = await loginApi(data);
-      // Guardar token en cookie (accesible por el middleware)
+      console.log('✅ Respuesta del backend:', response);
+
+      // Guardar cookie
       document.cookie = `token=${response.token}; path=/; max-age=${60 * 60 * 8}`;
+
+      // Pequeña pausa para que el navegador registre la cookie antes de redirigir
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error inesperado';

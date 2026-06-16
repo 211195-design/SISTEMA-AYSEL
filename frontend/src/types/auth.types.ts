@@ -1,15 +1,14 @@
-// src/types/auth.types.ts
-
 export interface ILoginRequest {
   correo: string;
   contrasena: string;
 }
 
 export interface IUsuarioAuth {
-  id: number;
-  nombre: string;
-  correo: string;
-  rol: string;
+  IdUsuario: number;
+  Usuario: string;
+  Nombres: string;
+  Correo: string;
+  NombreRol: string;
 }
 
 export interface ILoginResponse {

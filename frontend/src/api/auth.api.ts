@@ -7,15 +7,16 @@ export async function loginApi(data: ILoginRequest): Promise<ILoginResponse> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      NombreUsuario: data.correo,   // ← mapeo aquí
-      Contrasena: data.contrasena,  // ← mapeo aquí
+      NombreUsuario: data.correo,
+      Contrasena: data.contrasena,
     }),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.mensaje || 'Error al iniciar sesión');  // ← backend usa "mensaje" no "message"
+    throw new Error(error.mensaje || 'Error al iniciar sesión');
   }
 
-  return response.json();
+  const json = await response.json();
+  return json.data; // ← único cambio
 }
