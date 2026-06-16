@@ -244,3 +244,9 @@ VALUES
 ('Verde'),
 ('Amarillo'),
 ('Rosado');
+
+INSERT INTO Colores(NombreColor)
+VALUES
+('Morado'),
+('Naranja'),
+('Celeste');
