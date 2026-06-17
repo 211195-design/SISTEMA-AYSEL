@@ -10,6 +10,7 @@
     "lucide-react": "^1.17.0",
     "next-auth": "^4.24.14",
     "react-hook-form": "^7.78.0",
+    "recharts": "^3.8.1",
     "sonner": "^2.0.7",
     "zod": "^4.4.3"
   },
@@ -33,6 +34,3 @@
     "lint": "next lint"
   }
 }
-
-
-

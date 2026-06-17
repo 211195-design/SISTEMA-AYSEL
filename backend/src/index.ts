@@ -3,6 +3,7 @@ dotenv.config();
 
 import app from './app';
 import db from './config/database';
+import dashboardRoutes from './routes/dashboard.routes';
 
 const PORT = process.env.PORT || 3001;
 

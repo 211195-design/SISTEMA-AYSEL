@@ -3,7 +3,7 @@ import { ILoginRequest, ILoginResponse } from '@/types/auth.types';
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function loginApi(data: ILoginRequest): Promise<ILoginResponse> {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
