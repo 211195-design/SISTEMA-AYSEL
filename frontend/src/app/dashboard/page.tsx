@@ -1,4 +1,5 @@
 ﻿'use client';
+import { apiFetch } from '@/lib/api-client';
 
 import { useEffect, useState } from 'react';
 import {
@@ -38,9 +39,8 @@ export default function DashboardPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dashboard`, { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('Error al cargar'); return r.json(); })
+ useEffect(() => {
+    apiFetch<{ success: boolean; data: DashboardData }>('/dashboard')
       .then(j => setData(j.data))
       .catch(e => setError(e.message))
       .finally(() => setCargando(false));
