@@ -185,6 +185,7 @@ export default function InventarioPage() {
                     </td>
                     <td className="py-3">
                       <button
+                        type="button"
                         onClick={() => abrirEditar(item)}
                         className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition-colors"
                         title="Editar stock"
@@ -206,7 +207,7 @@ export default function InventarioPage() {
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-gray-800">Actualizar Stock</h2>
-              <button onClick={cerrarEditar} className="text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={cerrarEditar} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
                 <X size={18} />
               </button>
             </div>
@@ -225,8 +226,11 @@ export default function InventarioPage() {
               </div>
             </div>
 
-            <label className="text-xs text-gray-500 mb-1 block">Nuevo stock</label>
+            <label className="text-xs text-gray-500 mb-1 block" htmlFor="nuevoStock">
+              Nuevo stock
+            </label>
             <input
+              id="nuevoStock"
               type="number"
               min="0"
               value={nuevoStock}
@@ -240,12 +244,14 @@ export default function InventarioPage() {
 
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={cerrarEditar}
                 className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50"
               >
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={guardarStock}
                 disabled={guardando}
                 className="flex-1 px-4 py-2 text-sm bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 font-medium"
