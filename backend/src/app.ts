@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
 import dashoardRoutes from './routes/dashboard.routes';
+import inventarioRoutes from './routes/inventario.routes';
+
 
 
 dotenv.config();
@@ -17,6 +19,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashoardRoutes);
+app.use('/api/inventario', inventarioRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'BACKEND FUNCIONADO ' });
