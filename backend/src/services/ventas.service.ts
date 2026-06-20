@@ -35,7 +35,6 @@ export const registrarVenta = async (
     );
   }
 
-  // VALIDAR STOCK
   for (const item of items) {
 
     const inventario =
@@ -95,7 +94,6 @@ export const registrarVenta = async (
     }))
   );
 
-  // DESCONTAR STOCK
   for (const item of items) {
 
     const inventario =
