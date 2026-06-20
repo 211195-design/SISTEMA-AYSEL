@@ -167,14 +167,14 @@ export default function DashboardPage() {
                     cx="50%" cy="50%"
                     innerRadius={50} outerRadius={80}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
                     {categoriaChart.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Tooltip formatter={(value) => fmt(Number(value)) } />
                 </PieChart>
               </ResponsiveContainer>
               <ul className="mt-2 space-y-1">
