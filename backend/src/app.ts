@@ -5,8 +5,8 @@ import authRoutes from './routes/auth.routes';
 import dashoardRoutes from './routes/dashboard.routes';
 import inventarioRoutes from './routes/inventario.routes';
 import productosRoutes from './routes/productos.routes';
-
-
+import ventasRoutes from './routes/ventas.routes';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -17,11 +17,13 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashoardRoutes);
 app.use('/api/inventario', inventarioRoutes);
 app.use('/api/productos', productosRoutes);
+app.use('/api/ventas', ventasRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'BACKEND FUNCIONADO ' });
