@@ -13,3 +13,17 @@ npm list zod
 npm list @hookform/resolvers
 
 instalar node.js de la pagina oficial
+
+npm install jspdf jspdf-autotable
+
+# Backend
+cd D:\SISTEMA-AYSEL\backend
+npm install exceljs
+npm install -D @types/node
+
+# Frontend
+cd D:\SISTEMA-AYSEL\frontend
+npm install xlsx file-saver
+npm install -D @types/file-saver
+
+
