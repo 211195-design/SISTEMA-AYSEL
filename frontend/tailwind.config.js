@@ -6,7 +6,14 @@ module.exports = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        pie1: '#8B5CF6',
+        pie2: '#EC4899',
+        pie3: '#06B6D4',
+        pie4: '#22C55E',
+      }
+    },
   },
   plugins: [],
 }
