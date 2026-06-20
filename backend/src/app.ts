@@ -8,6 +8,7 @@ import productosRoutes from './routes/productos.routes';
 import ventasRoutes from './routes/ventas.routes';
 import cookieParser from 'cookie-parser';
 import reportesRoutes from './routes/reportes.routes';
+import clientesRoutes from './routes/clientes.routes';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use('/api/inventario', inventarioRoutes);
 app.use('/api/productos', productosRoutes);
 app.use('/api/ventas', ventasRoutes);
 app.use('/api/reportes', reportesRoutes);
+app.use('/api/clientes', clientesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'BACKEND FUNCIONADO ' });
