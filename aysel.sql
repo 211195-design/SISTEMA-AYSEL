@@ -1,17 +1,21 @@
 
 
-CREATE DATABASE IF NOT EXISTS BD_TIENDA_AYSEL;
-USE BD_TIENDA_AYSEL;
+```sql
+-- ==========================================
+-- BASE DE DATOS TIENDA AYSEL
+-- SCRIPT COMPLETO CORREGIDO
+-- ==========================================
 
-DESCRIBE Usuarios;
-DESCRIBE Roles;
+DROP DATABASE IF EXISTS BD_TIENDA_AYSEL;
+CREATE DATABASE BD_TIENDA_AYSEL;
+USE BD_TIENDA_AYSEL;
 
 -- ==========================
 -- TABLA ROLES
 -- ==========================
 CREATE TABLE Roles(
     IdRol INT AUTO_INCREMENT PRIMARY KEY,
-    NombreRol VARCHAR(50) NOT NULL
+    NombreRol VARCHAR(50) NOT NULL UNIQUE
 );
 
 -- ==========================
@@ -22,8 +26,8 @@ CREATE TABLE Usuarios (
     IdRol INT NOT NULL,
     Nombres VARCHAR(100) NOT NULL,
     Apellidos VARCHAR(100) NOT NULL,
-    Correo VARCHAR(150) UNIQUE NOT NULL,
-    Usuario VARCHAR(50) UNIQUE NOT NULL,
+    Correo VARCHAR(150) NOT NULL UNIQUE,
+    Usuario VARCHAR(50) NOT NULL UNIQUE,
     Clave VARCHAR(255) NOT NULL,
     Telefono VARCHAR(20),
     Estado BOOLEAN DEFAULT TRUE,
@@ -50,7 +54,7 @@ CREATE TABLE Clientes(
 -- ==========================
 CREATE TABLE Categorias(
     IdCategoria INT AUTO_INCREMENT PRIMARY KEY,
-    NombreCategoria VARCHAR(100) NOT NULL,
+    NombreCategoria VARCHAR(100) NOT NULL UNIQUE,
     Descripcion VARCHAR(200)
 );
 
@@ -76,7 +80,7 @@ CREATE TABLE Productos(
 -- ==========================
 CREATE TABLE Tallas(
     IdTalla INT AUTO_INCREMENT PRIMARY KEY,
-    NombreTalla VARCHAR(20) NOT NULL
+    NombreTalla VARCHAR(20) NOT NULL UNIQUE
 );
 
 -- ==========================
@@ -84,8 +88,7 @@ CREATE TABLE Tallas(
 -- ==========================
 CREATE TABLE Colores(
     IdColor INT AUTO_INCREMENT PRIMARY KEY,
-    NombreColor VARCHAR(50) NOT NULL
-    
+    NombreColor VARCHAR(50) NOT NULL UNIQUE
 );
 
 -- ==========================
@@ -96,7 +99,7 @@ CREATE TABLE Inventario(
     IdProducto INT NOT NULL,
     IdTalla INT NULL,
     IdColor INT NULL,
-    StockActual INT NOT NULL,
+    StockActual INT NOT NULL DEFAULT 0,
 
     FOREIGN KEY (IdProducto) REFERENCES Productos(IdProducto),
     FOREIGN KEY (IdTalla) REFERENCES Tallas(IdTalla),
@@ -108,7 +111,7 @@ CREATE TABLE Inventario(
 -- ==========================
 CREATE TABLE FormasPago(
     IdFormaPago INT AUTO_INCREMENT PRIMARY KEY,
-    NombreFormaPago VARCHAR(50) NOT NULL
+    NombreFormaPago VARCHAR(50) NOT NULL UNIQUE
 );
 
 -- ==========================
@@ -124,7 +127,7 @@ CREATE TABLE Ventas(
     SubTotal DECIMAL(10,2) NOT NULL,
     Descuento DECIMAL(10,2) DEFAULT 0,
     Total DECIMAL(10,2) NOT NULL,
-    Estado VARCHAR(20) DEFAULT 'ACTIVA',
+    Estado ENUM('ACTIVA','ANULADA','COMPLETADA') DEFAULT 'ACTIVA',
 
     FOREIGN KEY (IdCliente) REFERENCES Clientes(IdCliente),
     FOREIGN KEY (IdUsuario) REFERENCES Usuarios(IdUsuario),
@@ -205,18 +208,30 @@ CREATE TABLE Caja(
 -- DATOS INICIALES
 -- ==========================
 
-INSERT INTO Roles(NombreRol)
-VALUES
+INSERT INTO Roles(NombreRol) VALUES
 ('Administrador'),
 ('Vendedor');
 
-INSERT INTO FormasPago(NombreFormaPago)
+INSERT INTO Usuarios
+(IdRol,Nombres,Apellidos,Correo,Usuario,Clave,Telefono,Estado)
 VALUES
-('Efectivo'),
-('Yape');
+(
+1,
+'Admin',
+'Sistema',
+'admin@aysel.com',
+'admin',
+'$2b$10$QuAOelih5zgcdfOdrV083eV5OPN8rd4.s8vo0vUcZ35Ntwifx5L3q',
+'999999999',
+1
+);
 
-INSERT INTO Categorias(NombreCategoria)
-VALUES
+INSERT INTO FormasPago(NombreFormaPago) VALUES
+('Efectivo'),
+('Yape'),
+('Transferencia');
+
+INSERT INTO Categorias(NombreCategoria) VALUES
 ('Ropa Dama'),
 ('Ropa Caballero'),
 ('Ropa Niño'),
@@ -229,8 +244,7 @@ VALUES
 ('Arreglos de Cumpleaños'),
 ('Arreglos de Graduación');
 
-INSERT INTO Tallas(NombreTalla)
-VALUES
+INSERT INTO Tallas(NombreTalla) VALUES
 ('2'),
 ('4'),
 ('6'),
@@ -240,111 +254,110 @@ VALUES
 ('S'),
 ('M'),
 ('L'),
-('XL');
+('XL'),
+('Único');
 
-INSERT INTO Colores(NombreColor)
-VALUES
+INSERT INTO Colores(NombreColor) VALUES
 ('Negro'),
 ('Blanco'),
 ('Rojo'),
 ('Azul'),
 ('Verde'),
 ('Amarillo'),
-('Rosado');
-INSERT INTO Roles (NombreRol) VALUES ('Administrador');
-INSERT INTO Usuarios (IdRol, Nombres, Apellidos, Usuario, Clave, Telefono, Estado)
-VALUES (
-  1,
-  'Admin',
-  'Sistema',
-  'admin',
-  '$2b$10$QuAOelih5zgcdfOdrV083eV5OPN8rd4.s8vo0vUcZ35Ntwifx5L3q',
-  '999999999',
-  1
-);
+('Rosado'),
+('Multicolor');
 
+INSERT INTO Clientes
+(DNI,Nombres,Apellidos,Telefono,Direccion)
+VALUES
+('12345678','Ana','García','987001001','Av. Lima 101'),
+('23456789','Luis','Pérez','987001002','Jr. Cusco 202'),
+('34567890','María','Torres','987001003','Calle Arequipa 3'),
+('45678901','Carlos','Ríos','987001004','Av. Tacna 404'),
+('56789012','Sofía','Mendoza','987001005','Jr. Puno 505');
 
-SELECT IdUsuario, Usuario, Clave, Estado FROM Usuarios;
+INSERT INTO Productos
+(IdCategoria,Codigo,NombreProducto,Descripcion,PrecioCompra,PrecioVenta,StockMinimo,Estado)
+VALUES
+(11,'P001','Arreglo Graduación','Arreglo floral de graduación',80.00,165.00,2,1),
+(2,'P002','Pantalón Jean Adulto','Jean clásico adulto',60.00,120.00,3,1),
+(6,'P003','Peluche Personalizado','Peluche con mensaje',40.00,105.00,2,1),
+(10,'P004','Arreglo Floral Cumpleaños','Arreglo para cumpleaños',45.00,90.00,2,1),
+(1,'P005','Blusa Dama Casual','Blusa casual para dama',35.00,70.00,3,1),
+(10,'P006','Ramo Rosas Rojas','Ramo de 12 rosas',30.00,60.00,2,1);
+
+INSERT INTO Inventario
+(IdProducto,IdTalla,IdColor,StockActual)
+VALUES
+(1,11,8,15),
+(2,8,4,20),
+(3,11,8,10),
+(4,11,3,12),
+(5,7,2,8),
+(6,11,3,5);
+
+INSERT INTO Ventas
+(NumeroBoleta,IdCliente,IdUsuario,IdFormaPago,SubTotal,Descuento,Total,Estado)
+VALUES
+('B001',1,1,1,165.00,0,165.00,'COMPLETADA'),
+('B002',2,1,2,120.00,0,120.00,'COMPLETADA'),
+('B003',3,1,1,105.00,0,105.00,'COMPLETADA'),
+('B004',4,1,3,90.00,0,90.00,'COMPLETADA'),
+('B005',5,1,1,70.00,0,70.00,'COMPLETADA');
+
+INSERT INTO DetalleVenta
+(IdVenta,IdInventario,Cantidad,PrecioUnitario,Descuento,SubTotal)
+VALUES
+(1,1,1,165.00,0,165.00),
+(2,2,1,120.00,0,120.00),
+(3,3,1,105.00,0,105.00),
+(4,4,1,90.00,0,90.00),
+(5,5,1,70.00,0,70.00);
+
+-- ==========================
+-- INDICES
+-- ==========================
+
+CREATE INDEX idx_producto_categoria
+ON Productos(IdCategoria);
+
+CREATE INDEX idx_venta_fecha
+ON Ventas(FechaVenta);
+
+CREATE INDEX idx_cliente_dni
+ON Clientes(DNI);
+
+CREATE INDEX idx_inventario_producto
+ON Inventario(IdProducto);
+
+-- ==========================
+-- TRIGGER DESCUENTO STOCK
+-- ==========================
+
+DELIMITER $$
+
+CREATE TRIGGER tr_descontar_stock
+AFTER INSERT ON DetalleVenta
+FOR EACH ROW
+BEGIN
+    UPDATE Inventario
+    SET StockActual = StockActual - NEW.Cantidad
+    WHERE IdInventario = NEW.IdInventario;
+END$$
+
+DELIMITER ;
+
+-- ==========================
+-- CONSULTAS DE PRUEBA
+-- ==========================
+
 SELECT * FROM Roles;
 SELECT * FROM Usuarios;
-ALTER TABLE Usuarios 
-ADD COLUMN Correo VARCHAR(100) NULL AFTER Apellidos;
-
-UPDATE Usuarios 
-SET Correo = 'admin@aysel.com' 
-WHERE IdUsuario = 1;
-
-SELECT * FROM Usuarios;
-SELECT IdUsuario, Usuario, Correo FROM Usuarios WHERE Usuario = 'admin';
-SELECT IdUsuario, Usuario, CHAR_LENGTH(Correo) as longitud, Correo 
-FROM Usuarios 
-WHERE IdUsuario = 1;
-
-UPDATE Usuarios 
-SET Clave = '$2b$10$QuAOelih5zgcdfOdrV083eV5OPN8rd4.s8vo0vUcZ35Ntwifx5L3q'
-WHERE Usuario = 'admin';
-
-USE BD_TIENDA_AYSEL;
-
--- 1. Categorías
-INSERT INTO categorias (NombreCategoria) VALUES 
-('Detalles'), ('Prendas'), ('Peluches');
-
--- 2. Productos
-INSERT INTO productos (IdCategoria, Codigo, NombreProducto, Descripcion, PrecioCompra, PrecioVenta, StockMinimo, Estado) VALUES
-(1, 'P001', 'Arreglo Graduación',       'Arreglo floral de graduación', 80.00,  165.00, 2, 1),
-(2, 'P002', 'Pantalón Jean Adulto',     'Jean clásico adulto',          60.00,  120.00, 3, 1),
-(3, 'P003', 'Peluche Personalizado',    'Peluche con mensaje',          40.00,  105.00, 2, 1),
-(1, 'P004', 'Arreglo Floral Cumpleaños','Arreglo para cumpleaños',      45.00,   90.00, 2, 1),
-(2, 'P005', 'Blusa Dama Casual',        'Blusa casual para dama',       35.00,   70.00, 3, 1),
-(1, 'P006', 'Ramo Rosas Rojas',         'Ramo de 12 rosas',             30.00,   60.00, 2, 1);
-
--- 3. Tallas y Colores (mínimo para inventario)
-INSERT INTO tallas (NombreTalla) VALUES ('Único'), ('S'), ('M'), ('L');
-INSERT INTO colores (NombreColor) VALUES ('Rojo'), ('Blanco'), ('Azul'), ('Multicolor');
-
--- 4. Inventario
-INSERT INTO inventario (IdProducto, IdTalla, IdColor, StockActual) VALUES
-(1, 1, 4, 15),
-(2, 3, 3, 20),
-(3, 1, 4, 10),
-(4, 1, 1, 12),
-(5, 2, 2,  8),
-(6, 1, 1,  5);
-
--- 5. Formas de pago
-INSERT INTO formaspago (NombreFormaPago) VALUES 
-('Efectivo'), ('Tarjeta'), ('Transferencia');
-
--- 6. Roles y Usuarios (si no existen)
-INSERT IGNORE INTO roles (NombreRol) VALUES ('Administrador'), ('Vendedor');
-
--- 7. Clientes
-INSERT INTO clientes (DNI, Nombres, Apellidos, Telefono, Direccion, FechaRegistro, Estado) VALUES
-('12345678', 'Ana',    'García',   '987001001', 'Av. Lima 101',    NOW(), 1),
-('23456789', 'Luis',   'Pérez',    '987001002', 'Jr. Cusco 202',   NOW(), 1),
-('34567890', 'María',  'Torres',   '987001003', 'Calle Arequipa 3',NOW(), 1),
-('45678901', 'Carlos', 'Ríos',     '987001004', 'Av. Tacna 404',   NOW(), 1),
-('56789012', 'Sofía',  'Mendoza',  '987001005', 'Jr. Puno 505',    NOW(), 1);
-
--- 8. Ventas
-INSERT INTO ventas (NumeroBoleta, IdCliente, IdUsuario, IdFormaPago, FechaVenta, SubTotal, Descuento, Total, Estado) VALUES
-('B001', 1, 1, 1, NOW(),           165.00, 0, 165.00, 'Completado'),
-('B002', 2, 1, 2, NOW(),           120.00, 0, 120.00, 'Completado'),
-('B003', 3, 1, 1, NOW(),           105.00, 0, 105.00, 'Completado'),
-('B004', 4, 1, 3, NOW(),            90.00, 0,  90.00, 'Completado'),
-('B005', 5, 1, 1, NOW(),            70.00, 0,  70.00, 'Completado');
-
--- 9. Detalle de ventas
-INSERT INTO detalleventa (IdVenta, IdInventario, Cantidad, PrecioUnitario, Descuento, SubTotal) VALUES
-(1, 1, 3, 165.00, 0, 165.00),
-(2, 2, 2, 120.00, 0, 120.00),
-(3, 3, 3, 105.00, 0, 105.00),
-(4, 4, 2,  90.00, 0,  90.00),
-(5, 5, 2,  70.00, 0,  70.00);
-
-
-SELECT * FROM formaspago;
-DELETE FROM formaspago WHERE IdFormaPago = 3;
+SELECT * FROM Clientes;
+SELECT * FROM Productos;
+SELECT * FROM Inventario;
+SELECT * FROM Ventas;
+SELECT * FROM DetalleVenta;
+```
 
 
