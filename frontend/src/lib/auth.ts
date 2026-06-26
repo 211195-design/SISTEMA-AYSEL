@@ -6,21 +6,27 @@ export function getToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-export function getUserFromToken(): { nombre: string; correo: string } | null {
+export function getUserFromToken(): {
+  nombre: string;
+  correo: string;
+  rol: string;
+  id: number;
+} | null {
   const token = getToken();
   if (!token) return null;
-
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     return {
-      nombre: payload.Nombres ?? payload.nombre ?? 'Usuario', // ← mayúscula primero
-      correo: payload.Correo  ?? payload.correo  ?? '',       // ← mayúscula primero
+      nombre: payload.Nombres   ?? payload.nombre   ?? 'Usuario',
+      correo: payload.Correo    ?? payload.correo    ?? '',
+      rol:    payload.NombreRol ?? payload.rol       ?? 'Vendedor',
+      id:     payload.IdUsuario ?? payload.id        ?? 0,
     };
   } catch {
     return null;
   }
 }
 
-export function logout(): void {
-  document.cookie = 'token=; path=/; max-age=0';
+export function logout() {
+  document.cookie = 'token=; Max-Age=0; path=/';
 }

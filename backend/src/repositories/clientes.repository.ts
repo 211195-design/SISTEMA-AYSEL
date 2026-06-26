@@ -85,3 +85,21 @@ export const buscarPorDNI = async (dni: string) => {
   );
   return rows[0] ?? null;
 };
+
+export const createClienteRapido = async (data: {
+  DNI: string; Nombres: string; Apellidos: string; Telefono?: string;
+}) => {
+  const [result]: any = await pool.query(`
+    INSERT INTO clientes (DNI, Nombres, Apellidos, Telefono, Estado)
+    VALUES (?, ?, ?, ?, 1)
+  `, [data.DNI, data.Nombres, data.Apellidos, data.Telefono ?? '']);
+  return result.insertId;
+};
+
+export const getClienteByDNI = async (dni: string) => {
+  const [rows]: any = await pool.query(`
+    SELECT IdCliente, DNI, Nombres, Apellidos, Telefono
+    FROM clientes WHERE DNI = ? LIMIT 1
+  `, [dni]);
+  return rows[0] ?? null;
+};

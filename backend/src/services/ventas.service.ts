@@ -46,3 +46,9 @@ export const anularVenta = async (id: number) => {
 
 export const listarFormaspago  = async () => repo.getFormaspago();
 export const listarClientes    = async () => repo.getClientesActivos();
+
+export const getReporteTurno = async (idUsuario: number, fecha: string) =>
+  repo.getReporteTurno(idUsuario, fecha);
+
+export const getReporteGeneral = async (desde: string, hasta: string) =>
+  repo.getReporteGeneral(desde, hasta);

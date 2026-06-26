@@ -41,3 +41,15 @@ export const buscarDNI = async (dni: string) => {
   if (!c) throw new Error('Cliente no encontrado');
   return c;
 };
+
+export const crearClienteRapido = async (data: any) => {
+  if (!data.DNI || !data.Nombres)
+    throw new Error('DNI y Nombres son requeridos');
+  const existe = await repo.getClienteByDNI(data.DNI);
+  if (existe) return existe;
+  const id = await repo.createClienteRapido(data);
+  return repo.getClienteById(id);
+};
+
+export const buscarPorDNI = async (dni: string) =>
+  repo.getClienteByDNI(dni);

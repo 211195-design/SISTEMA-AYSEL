@@ -128,3 +128,92 @@ export const getClientesActivos = async () => {
   `);
   return rows;
 };
+
+export const getReporteTurno = async (idUsuario: number, fecha: string) => {
+  const [rows]: any = await pool.query(`
+    SELECT
+      COUNT(*)                                          AS TotalVentas,
+      COALESCE(SUM(v.Total), 0)                        AS MontoTotal,
+      COALESCE(SUM(v.Descuento), 0)                    AS TotalDescuentos,
+      COALESCE(SUM(CASE WHEN v.Estado='Anulado' THEN 1 ELSE 0 END), 0) AS Anuladas,
+      f.NombreFormaPago,
+      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0) AS MontoFormaPago
+    FROM ventas v
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    WHERE v.IdUsuario = ? AND DATE(v.FechaVenta) = ? AND v.Estado = 'Completado'
+    GROUP BY f.NombreFormaPago
+  `, [idUsuario, fecha]);
+
+  const [resumen]: any = await pool.query(`
+    SELECT
+      COUNT(*)                                                           AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total ELSE 0 END), 0) AS MontoTotal,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Descuento ELSE 0 END), 0) AS TotalDescuentos,
+      COALESCE(SUM(CASE WHEN Estado='Anulado'    THEN 1 ELSE 0 END), 0) AS Anuladas
+    FROM ventas
+    WHERE IdUsuario = ? AND DATE(FechaVenta) = ?
+  `, [idUsuario, fecha]);
+
+  const [detalle]: any = await pool.query(`
+    SELECT
+      v.NumeroBoleta, v.FechaVenta, v.Total, v.Estado,
+      CONCAT(c.Nombres,' ',c.Apellidos) AS Cliente,
+      f.NombreFormaPago
+    FROM ventas v
+    INNER JOIN clientes   c ON v.IdCliente  = c.IdCliente
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    WHERE v.IdUsuario = ? AND DATE(v.FechaVenta) = ?
+    ORDER BY v.FechaVenta DESC
+  `, [idUsuario, fecha]);
+
+  return { resumen: resumen[0], porFormaPago: rows, detalle };
+};
+
+export const getReporteGeneral = async (desde: string, hasta: string) => {
+  const [resumen]: any = await pool.query(`
+    SELECT
+      COUNT(*)                                                               AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total     ELSE 0 END), 0) AS MontoTotal,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Descuento ELSE 0 END), 0) AS TotalDescuentos,
+      COALESCE(SUM(CASE WHEN Estado='Anulado'    THEN 1         ELSE 0 END), 0) AS Anuladas
+    FROM ventas
+    WHERE DATE(FechaVenta) BETWEEN ? AND ?
+  `, [desde, hasta]);
+
+  const [porVendedor]: any = await pool.query(`
+    SELECT
+      CONCAT(u.Nombres,' ',u.Apellidos)                                     AS Vendedor,
+      COUNT(*)                                                               AS TotalVentas,
+      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0) AS MontoTotal
+    FROM ventas v
+    INNER JOIN usuarios u ON v.IdUsuario = u.IdUsuario
+    WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
+    GROUP BY v.IdUsuario, Vendedor
+    ORDER BY MontoTotal DESC
+  `, [desde, hasta]);
+
+  const [porFormaPago]: any = await pool.query(`
+    SELECT
+      f.NombreFormaPago,
+      COUNT(*)                                                               AS TotalVentas,
+      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0) AS MontoTotal
+    FROM ventas v
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
+    GROUP BY f.IdFormaPago, f.NombreFormaPago
+    ORDER BY MontoTotal DESC
+  `, [desde, hasta]);
+
+  const [porDia]: any = await pool.query(`
+    SELECT
+      DATE(FechaVenta)                                                       AS Fecha,
+      COUNT(*)                                                               AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total ELSE 0 END), 0) AS MontoTotal
+    FROM ventas
+    WHERE DATE(FechaVenta) BETWEEN ? AND ?
+    GROUP BY DATE(FechaVenta)
+    ORDER BY Fecha ASC
+  `, [desde, hasta]);
+
+  return { resumen: resumen[0], porVendedor, porFormaPago, porDia };
+};
