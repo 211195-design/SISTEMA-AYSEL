@@ -76,3 +76,15 @@ export const reporteGeneral = async (req: Request, res: Response) => {
     res.json({ ok: true, data });
   } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
 };
+
+export const dashboard = async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.token ?? req.headers.authorization?.split(' ')[1];
+    if (!token) { res.status(401).json({ ok: false, mensaje: 'No autenticado' }); return; }
+    const payload = jwt.verify(token, SECRET) as any;
+    const data = await service.getDashboard(payload.IdUsuario);
+    res.json({ ok: true, data });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, mensaje: e.message });
+  }
+};

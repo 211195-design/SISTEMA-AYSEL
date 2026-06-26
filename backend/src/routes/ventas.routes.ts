@@ -6,6 +6,7 @@ const router = Router();
 router.get('/',              controller.listarVentas);
 router.get('/formaspago',    controller.listarFormaspago);
 router.get('/clientes',      controller.listarClientes);
+router.get('/dashboard',     controller.dashboard);
 router.get('/:id',           controller.obtenerVenta);
 router.post('/',             controller.registrarVenta);
 router.patch('/:id/anular',  controller.anularVenta);
