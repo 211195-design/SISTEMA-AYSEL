@@ -6,8 +6,10 @@ import { getUserFromToken, logout } from '@/lib/auth';
 import Link from 'next/link';
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart,
-  BarChart2, Users, UserCog, LogOut
+  BarChart2, Users, UserCog, LogOut, Tag
 } from 'lucide-react';
+
+
 
 import { Bolt } from "lucide-react";
 
@@ -27,6 +29,7 @@ const navItems = [
   { label: 'Clientes',   href: '/dashboard/clientes',   icon: Users },
   { label: 'Usuarios',   href: '/dashboard/usuarios',   icon: UserCog },
   { label:  'Configuración', href: '/dashboard/configuracion', icon: Bolt },
+  { label: 'Promociones', href: '/dashboard/promociones', icon: Tag  },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -56,3 +56,20 @@ export const buscarDNI = async (req: Request, res: Response) => {
     res.status(404).json({ ok: false, mensaje: e.message });
   }
 };
+
+
+export const crearClienteRapido = async (req: Request, res: Response) => {
+  try {
+    res.status(201).json({ ok: true, data: await service.crearClienteRapido(req.body) });
+  } catch (e: any) { res.status(400).json({ ok: false, mensaje: e.message }); }
+};
+
+export const buscarPorDNI = async (req: Request, res: Response) => {
+  try {
+    const dni = Array.isArray(req.params.dni) ? req.params.dni[0] : req.params.dni;
+    const c = await service.buscarPorDNI(dni);
+    if (!c) return res.status(404).json({ ok: false, mensaje: 'No encontrado' });
+    res.json({ ok: true, data: c });
+  } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
+};
+

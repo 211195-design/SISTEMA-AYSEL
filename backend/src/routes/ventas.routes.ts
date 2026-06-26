@@ -9,5 +9,8 @@ router.get('/clientes',      controller.listarClientes);
 router.get('/:id',           controller.obtenerVenta);
 router.post('/',             controller.registrarVenta);
 router.patch('/:id/anular',  controller.anularVenta);
+router.get('/reporte/turno',    controller.reporteTurno);
+router.get('/reporte/general',  controller.reporteGeneral);
+
 
 export default router;

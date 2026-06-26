@@ -60,3 +60,19 @@ export const listarClientes = async (req: Request, res: Response) => {
     res.status(500).json({ ok: false, mensaje: e.message });
   }
 };
+
+export const reporteTurno = async (req: Request, res: Response) => {
+  try {
+    const { idUsuario, fecha } = req.query;
+    const data = await service.getReporteTurno(Number(idUsuario), String(fecha));
+    res.json({ ok: true, data });
+  } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
+};
+
+export const reporteGeneral = async (req: Request, res: Response) => {
+  try {
+    const { desde, hasta } = req.query;
+    const data = await service.getReporteGeneral(String(desde), String(hasta));
+    res.json({ ok: true, data });
+  } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
+};
