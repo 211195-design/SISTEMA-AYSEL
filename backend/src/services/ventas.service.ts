@@ -52,3 +52,6 @@ export const getReporteTurno = async (idUsuario: number, fecha: string) =>
 
 export const getReporteGeneral = async (desde: string, hasta: string) =>
   repo.getReporteGeneral(desde, hasta);
+
+export const getDashboard = async (idUsuario: number) =>
+  repo.getDashboard(idUsuario);

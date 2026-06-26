@@ -4,14 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getUserFromToken, logout } from '@/lib/auth';
 import Link from 'next/link';
-import { ShoppingCart, FileText, Package, Users, LogOut,BarChart2 } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, FileText, Package, Users, LogOut,BarChart2 } from 'lucide-react';
 
 const navItems = [
+  { label: 'Dashboard',      href: '/pos/dashboard',     icon: LayoutDashboard   },
   { label: 'Punto de Venta', href: '/pos',               icon: ShoppingCart },
   { label: 'Comprobantes',   href: '/pos/comprobantes',   icon: FileText },
   { label: 'Inventario',     href: '/pos/inventario',     icon: Package },
   { label: 'Clientes',       href: '/pos/clientes',       icon: Users },
   { label: 'Reportes',       href: '/pos/reportes',     icon: BarChart2   },
+  
 ];
 
 export default function PosLayout({ children }: { children: React.ReactNode }) {

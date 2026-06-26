@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { loginSchema, LoginFormValues } from '@/validations/auth.validations';
 import { useLogin } from '@/hooks/useLogin';
 import { getUserFromToken } from '@/lib/auth';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,24 +21,30 @@ export default function LoginPage() {
     if (response) {
       const user = getUserFromToken();
       const rol  = user?.rol?.toLowerCase() ?? '';
-
       if (rol === 'vendedor' || rol === 'cajero') {
         router.push('/pos');
       } else {
-        router.push('/dashboard');   // administrador + cualquier otro rol
+        router.push('/dashboard');
       }
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8">
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-xl">A</span>
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-amber-50">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative w-40 h-40 mb-2">
+            <Image
+              src="/aysel.jpeg"
+              alt="Aysel Detalles"
+              fill
+              sizes="160px" className="object-contain rounded-full"
+              priority
+            />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Tienda Aysel</h1>
-          <p className="text-sm text-gray-400 mt-1">Inicia sesión para continuar</p>
+          <p className="text-sm text-gray-400">Inicia sesion para continuar</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -57,7 +64,7 @@ export default function LoginPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Contraseña
+              Contrasena
             </label>
             <input
               {...register('contrasena')}
@@ -88,3 +95,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

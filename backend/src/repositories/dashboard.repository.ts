@@ -1,4 +1,4 @@
-import pool from '../config/database';
+﻿import pool from '../config/database';
 
 // 1. Ventas de hoy
 export const getVentasHoy = async () => {
@@ -7,7 +7,7 @@ export const getVentasHoy = async () => {
       COUNT(*) AS cantidad,
       COALESCE(SUM(Total), 0) AS ingresos
     FROM ventas
-    WHERE DATE(FechaVenta) = CURDATE()
+    WHERE DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00')) = CURDATE()
       AND Estado = 'Completado'
   `);
   return rows[0];
@@ -48,23 +48,23 @@ export const getTotalClientes = async () => {
   return rows[0];
 };
 
-// 5. Tendencia semanal (últimos 7 días)
+// 5. Tendencia semanal (ultimos 7 dias)
 export const getTendenciaSemanal = async () => {
   const [rows]: any = await pool.query(`
     SELECT 
-      DATE(FechaVenta) AS fecha,
+      DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00')) AS fecha,
       COUNT(*) AS cantidadVentas,
       COALESCE(SUM(Total), 0) AS ingresos
     FROM ventas
-    WHERE FechaVenta >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    WHERE DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00')) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
       AND Estado = 'Completado'
-    GROUP BY DATE(FechaVenta)
+    GROUP BY DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00'))
     ORDER BY fecha ASC
   `);
   return rows;
 };
 
-// 6. Ventas por categoría
+// 6. Ventas por categoria
 export const getVentasPorCategoria = async () => {
   const [rows]: any = await pool.query(`
     SELECT 
@@ -82,7 +82,7 @@ export const getVentasPorCategoria = async () => {
   return rows;
 };
 
-// 7. Top 5 productos más rentables
+// 7. Top 5 productos mas rentables
 export const getTopProductos = async () => {
   const [rows]: any = await pool.query(`
     SELECT 
@@ -101,7 +101,7 @@ export const getTopProductos = async () => {
   return rows;
 };
 
-// 8. Métodos de pago
+// 8. Metodos de pago
 export const getMetodosPago = async () => {
   const [rows]: any = await pool.query(`
     SELECT 
