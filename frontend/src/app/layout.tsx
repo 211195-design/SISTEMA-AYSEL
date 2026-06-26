@@ -1,5 +1,10 @@
-﻿
+﻿import type { Metadata } from 'next';
 import './globals.css';
+
+export const metadata: Metadata = {
+  title: 'Aysel Detalles',
+  description: 'Sistema POS - Tienda Aysel',
+};
 
 export default function RootLayout({
   children,
@@ -8,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

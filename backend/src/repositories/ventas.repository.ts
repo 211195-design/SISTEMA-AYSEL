@@ -265,7 +265,7 @@ export const getDashboard = async (idUsuario: number) => {
     ORDER BY Hora ASC
   `, [hoy]);
 
-  // 4. Forma de pago mÃ¡s usada hoy
+  // 4. Forma de pago mas usada hoy
   const [formasPago]: any = await pool.query(`
     SELECT
       f.NombreFormaPago,
