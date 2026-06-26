@@ -85,6 +85,8 @@ export const buscarPorDNI = async (dni: string) => {
   );
   return rows[0] ?? null;
 };
+<<<<<<< HEAD
+=======
 
 export const createClienteRapido = async (data: {
   DNI: string; Nombres: string; Apellidos: string; Telefono?: string;
@@ -103,3 +105,4 @@ export const getClienteByDNI = async (dni: string) => {
   `, [dni]);
   return rows[0] ?? null;
 };
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import pool from '../config/database';
+=======
 ﻿import pool from '../config/database';
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 
 export const getAllVentas = async (desde?: string, hasta?: string) => {
   let where = '';
@@ -76,7 +80,11 @@ export const createVenta = async (data: {
 }) => {
   const [result]: any = await pool.query(`
     INSERT INTO ventas (NumeroBoleta, IdCliente, IdUsuario, IdFormaPago, FechaVenta, SubTotal, Descuento, Total, Estado)
+<<<<<<< HEAD
+    VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, 'Completado')
+=======
     VALUES (?, ?, ?, ?, CONVERT_TZ(NOW(),'+00:00','-05:00'), ?, ?, ?, 'Completado')
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   `, [data.NumeroBoleta, data.IdCliente, data.IdUsuario, data.IdFormaPago,
       data.SubTotal, data.Descuento, data.Total]);
   return result.insertId;
@@ -127,6 +135,9 @@ export const getClientesActivos = async () => {
     FROM clientes WHERE Estado = 1 ORDER BY Nombres ASC
   `);
   return rows;
+<<<<<<< HEAD
+};
+=======
 };
 
 export const getReporteTurno = async (idUsuario: number, fecha: string) => {
@@ -375,3 +386,4 @@ export const getDashboard = async (idUsuario: number) => {
 
 
 
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

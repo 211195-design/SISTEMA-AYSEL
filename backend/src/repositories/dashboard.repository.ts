@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import pool from '../config/database';
+=======
 ﻿import pool from '../config/database';
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 
 // 1. Ventas de hoy
 export const getVentasHoy = async () => {
@@ -7,7 +11,11 @@ export const getVentasHoy = async () => {
       COUNT(*) AS cantidad,
       COALESCE(SUM(Total), 0) AS ingresos
     FROM ventas
+<<<<<<< HEAD
+    WHERE DATE(FechaVenta) = CURDATE()
+=======
     WHERE DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00')) = CURDATE()
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
       AND Estado = 'Completado'
   `);
   return rows[0];
@@ -48,6 +56,19 @@ export const getTotalClientes = async () => {
   return rows[0];
 };
 
+<<<<<<< HEAD
+// 5. Tendencia semanal (últimos 7 días)
+export const getTendenciaSemanal = async () => {
+  const [rows]: any = await pool.query(`
+    SELECT 
+      DATE(FechaVenta) AS fecha,
+      COUNT(*) AS cantidadVentas,
+      COALESCE(SUM(Total), 0) AS ingresos
+    FROM ventas
+    WHERE FechaVenta >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      AND Estado = 'Completado'
+    GROUP BY DATE(FechaVenta)
+=======
 // 5. Tendencia semanal (ultimos 7 dias)
 export const getTendenciaSemanal = async () => {
   const [rows]: any = await pool.query(`
@@ -59,12 +80,17 @@ export const getTendenciaSemanal = async () => {
     WHERE DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00')) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
       AND Estado = 'Completado'
     GROUP BY DATE(CONVERT_TZ(FechaVenta,'+00:00','-05:00'))
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     ORDER BY fecha ASC
   `);
   return rows;
 };
 
+<<<<<<< HEAD
+// 6. Ventas por categoría
+=======
 // 6. Ventas por categoria
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 export const getVentasPorCategoria = async () => {
   const [rows]: any = await pool.query(`
     SELECT 
@@ -82,7 +108,11 @@ export const getVentasPorCategoria = async () => {
   return rows;
 };
 
+<<<<<<< HEAD
+// 7. Top 5 productos más rentables
+=======
 // 7. Top 5 productos mas rentables
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 export const getTopProductos = async () => {
   const [rows]: any = await pool.query(`
     SELECT 
@@ -101,7 +131,11 @@ export const getTopProductos = async () => {
   return rows;
 };
 
+<<<<<<< HEAD
+// 8. Métodos de pago
+=======
 // 8. Metodos de pago
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 export const getMetodosPago = async () => {
   const [rows]: any = await pool.query(`
     SELECT 

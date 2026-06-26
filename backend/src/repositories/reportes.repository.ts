@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import pool from '../config/database';
+=======
 ﻿import pool from '../config/database';
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 
 export const getReporteVentas = async (desde: string, hasta: string) => {
   const [rows]: any = await pool.query(`
@@ -10,10 +14,17 @@ export const getReporteVentas = async (desde: string, hasta: string) => {
       CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor,
       COUNT(dv.IdDetalleVenta) AS TotalItems
     FROM ventas v
+<<<<<<< HEAD
+    INNER JOIN clientes   c  ON v.IdCliente  = c.IdCliente
+    INNER JOIN formaspago f  ON v.IdFormaPago = f.IdFormaPago
+    INNER JOIN usuarios   u  ON v.IdUsuario   = u.IdUsuario
+    INNER JOIN detalleventa dv ON v.IdVenta   = dv.IdVenta
+=======
     INNER JOIN clientes     c  ON v.IdCliente   = c.IdCliente
     INNER JOIN formaspago   f  ON v.IdFormaPago  = f.IdFormaPago
     INNER JOIN usuarios     u  ON v.IdUsuario    = u.IdUsuario
     INNER JOIN detalleventa dv ON v.IdVenta      = dv.IdVenta
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
     AND v.Estado = 'Completado'
     GROUP BY v.IdVenta
@@ -54,10 +65,17 @@ export const getReporteProductosVendidos = async (desde: string, hasta: string) 
       SUM(dv.Cantidad * p.PrecioCompra) AS TotalCosto,
       SUM(dv.SubTotal) - SUM(dv.Cantidad * p.PrecioCompra) AS Ganancia
     FROM detalleventa dv
+<<<<<<< HEAD
+    INNER JOIN ventas     v  ON dv.IdVenta    = v.IdVenta
+    INNER JOIN inventario i  ON dv.IdInventario = i.IdInventario
+    INNER JOIN productos  p  ON i.IdProducto  = p.IdProducto
+    INNER JOIN categorias c  ON p.IdCategoria = c.IdCategoria
+=======
     INNER JOIN ventas     v  ON dv.IdVenta      = v.IdVenta
     INNER JOIN inventario i  ON dv.IdInventario = i.IdInventario
     INNER JOIN productos  p  ON i.IdProducto    = p.IdProducto
     INNER JOIN categorias c  ON p.IdCategoria   = c.IdCategoria
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
     AND v.Estado = 'Completado'
     GROUP BY p.IdProducto
@@ -183,6 +201,9 @@ export const getReporteAnuladas = async (desde: string, hasta: string) => {
     ORDER BY v.FechaVenta DESC
   `, [desde, hasta]);
   return rows;
+<<<<<<< HEAD
+};
+=======
 };
 
 // ─── NUEVAS FUNCIONES ────────────────────────────────────────────────────────
@@ -278,3 +299,4 @@ export const getReporteTurnos = async (desde: string, hasta: string) => {
 
   return { resumen, detalle: porDia };
 };
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

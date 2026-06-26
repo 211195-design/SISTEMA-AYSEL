@@ -4,6 +4,28 @@ import { apiFetch } from '@/lib/api-client';
 import { Package, Plus, Pencil, ToggleLeft, ToggleRight, X } from 'lucide-react';
 
 interface Producto {
+<<<<<<< HEAD
+  IdProducto: number;
+  Codigo: string;
+  NombreProducto: string;
+  Descripcion: string;
+  PrecioCompra: string;
+  PrecioVenta: string;
+  StockMinimo: number;
+  Estado: number;
+  IdCategoria: number;
+  NombreCategoria: string;
+}
+
+interface Categoria {
+  IdCategoria: number;
+  NombreCategoria: string;
+}
+
+const FORM_VACIO = {
+  Codigo: '', NombreProducto: '', Descripcion: '',
+  PrecioCompra: '', PrecioVenta: '', StockMinimo: '1', IdCategoria: '',
+=======
   IdProducto: number; Codigo: string; NombreProducto: string;
   Descripcion: string; PrecioCompra: string; PrecioVenta: string;
   StockMinimo: number; Estado: number; IdCategoria: number; NombreCategoria: string;
@@ -16,13 +38,17 @@ const FORM_VACIO = {
   Codigo: '', NombreProducto: '', Descripcion: '',
   PrecioCompra: '', PrecioVenta: '', StockMinimo: '1',
   IdCategoria: '', IdTalla: '', IdColor: '', StockInicial: '0',
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 };
 
 export default function ProductosPage() {
   const [productos, setProductos]   = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+<<<<<<< HEAD
+=======
   const [tallas, setTallas]         = useState<Talla[]>([]);
   const [colores, setColores]       = useState<Color[]>([]);
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   const [cargando, setCargando]     = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [busqueda, setBusqueda]     = useState('');
@@ -35,6 +61,12 @@ export default function ProductosPage() {
   const cargar = () => {
     setCargando(true);
     Promise.all([
+<<<<<<< HEAD
+      apiFetch<{ ok: boolean; data: Producto[] }>('/productos'),
+      apiFetch<{ ok: boolean; data: Categoria[] }>('/productos/categorias'),
+    ])
+      .then(([p, c]) => { setProductos(p.data); setCategorias(c.data); })
+=======
       apiFetch<{ ok: boolean; data: Producto[]  }>('/productos'),
       apiFetch<{ ok: boolean; data: Categoria[] }>('/productos/categorias'),
       apiFetch<{ ok: boolean; data: Talla[]     }>('/productos/tallas'),
@@ -46,6 +78,7 @@ export default function ProductosPage() {
         setTallas(t.data);
         setColores(col.data);
       })
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
       .catch(e => setError(e.message))
       .finally(() => setCargando(false));
   };
@@ -58,9 +91,14 @@ export default function ProductosPage() {
     p.NombreCategoria.toLowerCase().includes(busqueda.toLowerCase())
   );
 
+<<<<<<< HEAD
+  const abrirCrear = () => {
+    setForm(FORM_VACIO);
+=======
   const abrirCrear = async () => {
     const r = await apiFetch<{ ok: boolean; data: string }>('/productos/next-codigo');
     setForm({ ...FORM_VACIO, Codigo: r.data });
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     setMsgModal(null);
     setModal('crear');
   };
@@ -71,7 +109,11 @@ export default function ProductosPage() {
       Codigo: p.Codigo, NombreProducto: p.NombreProducto,
       Descripcion: p.Descripcion, PrecioCompra: p.PrecioCompra,
       PrecioVenta: p.PrecioVenta, StockMinimo: String(p.StockMinimo),
+<<<<<<< HEAD
+      IdCategoria: String(p.IdCategoria),
+=======
       IdCategoria: String(p.IdCategoria), IdTalla: '', IdColor: '', StockInicial: '0',
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     });
     setMsgModal(null);
     setModal('editar');
@@ -79,11 +121,21 @@ export default function ProductosPage() {
 
   const cerrar = () => { setModal(null); setSeleccionado(null); };
 
+<<<<<<< HEAD
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  };
+
+  const guardar = async () => {
+    setGuardando(true);
+    setMsgModal(null);
+=======
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
   const guardar = async () => {
     setGuardando(true); setMsgModal(null);
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     try {
       const body = {
         ...form,
@@ -91,9 +143,12 @@ export default function ProductosPage() {
         PrecioVenta:  Number(form.PrecioVenta),
         StockMinimo:  Number(form.StockMinimo),
         IdCategoria:  Number(form.IdCategoria),
+<<<<<<< HEAD
+=======
         IdTalla:      form.IdTalla  ? Number(form.IdTalla)  : undefined,
         IdColor:      form.IdColor  ? Number(form.IdColor)  : undefined,
         StockInicial: Number(form.StockInicial),
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
       };
       if (modal === 'crear') {
         await apiFetch('/productos', { method: 'POST', body: JSON.stringify(body) });
@@ -117,17 +172,36 @@ export default function ProductosPage() {
         body: JSON.stringify({ estado: p.Estado === 1 ? 0 : 1 }),
       });
       cargar();
+<<<<<<< HEAD
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  // Stats
+=======
     } catch (e: any) { alert(e.message); }
   };
 
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   const activos   = productos.filter(p => p.Estado === 1).length;
   const inactivos = productos.filter(p => p.Estado === 0).length;
 
   if (cargando) return (
+<<<<<<< HEAD
+    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+      Cargando productos...
+    </div>
+  );
+
+  if (error) return (
+    <div className="bg-red-50 text-red-600 rounded-xl p-4 text-sm">⚠️ {error}</div>
+=======
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Cargando productos...</div>
   );
   if (error) return (
     <div className="bg-red-50 text-red-600 rounded-xl p-4 text-sm"> {error}</div>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   );
 
   return (
@@ -139,8 +213,15 @@ export default function ProductosPage() {
           <h1 className="text-2xl font-bold text-gray-800">Productos</h1>
           <p className="text-sm text-gray-400 mt-0.5">Gestión del catálogo de productos</p>
         </div>
+<<<<<<< HEAD
+        <button
+          onClick={abrirCrear}
+          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+        >
+=======
         <button onClick={abrirCrear}
           className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
           <Plus size={16} /> Nuevo producto
         </button>
       </div>
@@ -148,17 +229,35 @@ export default function ProductosPage() {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl shadow-sm p-5">
+<<<<<<< HEAD
+          <div className="p-2.5 rounded-xl bg-purple-50 w-fit mb-3">
+            <Package size={22} className="text-purple-500" />
+          </div>
+=======
           <div className="p-2.5 rounded-xl bg-purple-50 w-fit mb-3"><Package size={22} className="text-purple-500" /></div>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
           <p className="text-xs text-gray-400">Total productos</p>
           <p className="text-2xl font-bold text-gray-800">{productos.length}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm p-5">
+<<<<<<< HEAD
+          <div className="p-2.5 rounded-xl bg-green-50 w-fit mb-3">
+            <ToggleRight size={22} className="text-green-500" />
+          </div>
+=======
           <div className="p-2.5 rounded-xl bg-green-50 w-fit mb-3"><Package size={22} className="text-green-500" /></div>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
           <p className="text-xs text-gray-400">Activos</p>
           <p className="text-2xl font-bold text-gray-800">{activos}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm p-5">
+<<<<<<< HEAD
+          <div className="p-2.5 rounded-xl bg-gray-100 w-fit mb-3">
+            <ToggleLeft size={22} className="text-gray-400" />
+          </div>
+=======
           <div className="p-2.5 rounded-xl bg-gray-100 w-fit mb-3"><Package size={22} className="text-gray-400" /></div>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
           <p className="text-xs text-gray-400">Inactivos</p>
           <p className="text-2xl font-bold text-gray-800">{inactivos}</p>
         </div>
@@ -167,10 +266,22 @@ export default function ProductosPage() {
       {/* Tabla */}
       <div className="bg-white rounded-2xl shadow-sm p-5">
         <div className="mb-4">
+<<<<<<< HEAD
+          <input
+            type="text"
+            placeholder="Buscar por nombre, código o categoría..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="w-full sm:w-80 px-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300"
+          />
+        </div>
+
+=======
           <input type="text" placeholder="Buscar por nombre, código o categoría..."
             value={busqueda} onChange={e => setBusqueda(e.target.value)}
             className="w-full sm:w-80 px-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
         </div>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -187,7 +298,15 @@ export default function ProductosPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtrado.length === 0 ? (
+<<<<<<< HEAD
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-gray-400">
+                    No se encontraron productos
+                  </td>
+                </tr>
+=======
                 <tr><td colSpan={8} className="py-8 text-center text-gray-400">No se encontraron productos</td></tr>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
               ) : filtrado.map(p => (
                 <tr key={p.IdProducto} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 pr-4 font-mono text-xs text-gray-500">{p.Codigo}</td>
@@ -202,6 +321,30 @@ export default function ProductosPage() {
                   <td className="py-3 pr-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       p.Estado === 1 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+<<<<<<< HEAD
+                    }`}>
+                      {p.Estado === 1 ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="py-3">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => abrirEditar(p)}
+                        className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500 transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => toggleEstado(p)}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          p.Estado === 1
+                            ? 'hover:bg-red-50 text-red-400'
+                            : 'hover:bg-green-50 text-green-500'
+                        }`}
+                        title={p.Estado === 1 ? 'Desactivar' : 'Activar'}
+                      >
+=======
                     }`}>{p.Estado === 1 ? 'Activo' : 'Inactivo'}</span>
                   </td>
                   <td className="py-3">
@@ -214,6 +357,7 @@ export default function ProductosPage() {
                         className={`p-1.5 rounded-lg transition-colors ${
                           p.Estado === 1 ? 'hover:bg-red-50 text-red-400' : 'hover:bg-green-50 text-green-500'
                         }`} title={p.Estado === 1 ? 'Desactivar' : 'Activar'}>
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
                         {p.Estado === 1 ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
                       </button>
                     </div>
@@ -228,6 +372,22 @@ export default function ProductosPage() {
       {/* Modal crear / editar */}
       {modal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+<<<<<<< HEAD
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-base font-bold text-gray-800">
+                {modal === 'crear' ? 'Nuevo Producto' : 'Editar Producto'}
+              </h2>
+              <button type = "button" onClick={cerrar} aria-label = "Cerrar modal" className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+=======
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h2 className="text-base font-bold text-gray-800">
@@ -239,11 +399,33 @@ export default function ProductosPage() {
             <div className="p-6 space-y-4">
 
               {/* Código + Categoría */}
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Código</label>
                   <input name="Codigo" value={form.Codigo} onChange={handleChange}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300"
+<<<<<<< HEAD
+                    placeholder="P007" />
+                </div>
+                <div>
+                    <label htmlFor="IdCategoria" className="block text-sm font-medium mb-1"> Categoría </label>
+
+                    <select id="IdCategoria" name="IdCategoria" value={form.IdCategoria} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
+                    <option value="">Seleccionar...</option>
+                    {categorias.map((c) => (
+                        <option key={c.IdCategoria} value={c.IdCategoria}>
+                        {c.NombreCategoria}
+                        </option>
+                    ))}
+                    </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Nombre del producto *</label>
+                <input name="NombreProducto" value={form.NombreProducto} onChange={handleChange}
+=======
                     placeholder="P009" />
                   <p className="text-xs text-gray-400 mt-0.5">Se genera automáticamente</p>
                 </div>
@@ -263,20 +445,30 @@ export default function ProductosPage() {
               <div>
                 <label htmlFor="NombreProducto" className="text-xs text-gray-500 mb-1 block">Nombre del producto *</label>
                 <input id = "NombreProducto" name="NombreProducto" value={form.NombreProducto} onChange={handleChange}
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300"
                   placeholder="Nombre del producto" />
               </div>
 
+<<<<<<< HEAD
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Descripción</label>
+                <textarea name="Descripcion" value={form.Descripcion} onChange={handleChange}
+=======
               {/* Descripción */}
               <div>
                 <label htmlFor="Descripcion" className="text-xs text-gray-500 mb-1 block">Descripción</label>
                 <textarea id = "Descripcion" name="Descripcion" value={form.Descripcion} onChange={handleChange}
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
                   rows={2}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none"
                   placeholder="Descripción opcional" />
               </div>
 
+<<<<<<< HEAD
+=======
               {/* Precios + Stock mínimo */}
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Precio compra</label>
@@ -301,6 +493,14 @@ export default function ProductosPage() {
                 </div>
               </div>
 
+<<<<<<< HEAD
+              {msgModal && (
+                <p className="text-sm text-center">{msgModal}</p>
+              )}
+            </div>
+
+            {/* Footer */}
+=======
               {/* Talla + Color (solo al crear) */}
               {modal === 'crear' && (
                 <div className="grid grid-cols-2 gap-4">
@@ -342,6 +542,7 @@ export default function ProductosPage() {
               {msgModal && <p className="text-sm text-center">{msgModal}</p>}
             </div>
 
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
             <div className="flex gap-3 p-6 pt-0">
               <button onClick={cerrar}
                 className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
@@ -355,6 +556,10 @@ export default function ProductosPage() {
           </div>
         </div>
       )}
+<<<<<<< HEAD
+
+=======
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     </div>
   );
 }

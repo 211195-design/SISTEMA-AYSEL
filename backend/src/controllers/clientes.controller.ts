@@ -56,6 +56,8 @@ export const buscarDNI = async (req: Request, res: Response) => {
     res.status(404).json({ ok: false, mensaje: e.message });
   }
 };
+<<<<<<< HEAD
+=======
 
 
 export const crearClienteRapido = async (req: Request, res: Response) => {
@@ -73,3 +75,4 @@ export const buscarPorDNI = async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
 };
 
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

@@ -1,3 +1,13 @@
+<<<<<<< HEAD
+﻿export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold">Frontend Next.js 🚀</h1>
+      <p className="mt-4 text-lg">Estructura lista para trabajar</p>
+    </main>
+  );
+}
+=======
 ﻿
 'use client';
 
@@ -232,3 +242,4 @@ export default function Home() {
   );
 }
 
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

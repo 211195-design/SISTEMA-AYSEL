@@ -11,6 +11,9 @@ export const obtenerProducto = async (id: number) => {
 export const crearProducto = async (data: any) => {
   if (!data.NombreProducto || !data.PrecioVenta || !data.IdCategoria)
     throw new Error('NombreProducto, PrecioVenta e IdCategoria son requeridos');
+<<<<<<< HEAD
+  const id = await repo.createProducto(data);
+=======
 
   // Autoincremento de código
   const Codigo = data.Codigo?.trim() || await repo.getNextCodigo();
@@ -26,6 +29,7 @@ export const crearProducto = async (data: any) => {
     StockInicial:  Number(data.StockInicial  ?? 0),
   });
 
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   return repo.getProductoById(id);
 };
 
@@ -41,7 +45,11 @@ export const cambiarEstado = async (id: number, estado: number) => {
   return repo.getProductoById(id);
 };
 
+<<<<<<< HEAD
+export const listarCategorias = async () => repo.getAllCategorias();
+=======
 export const listarCategorias = async () => repo.getAllCategorias();
 export const listarTallas     = async () => repo.getTallas();
 export const listarColores    = async () => repo.getColores();
 export const siguienteCodigo  = async () => repo.getNextCodigo();
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

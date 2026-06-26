@@ -1,13 +1,34 @@
+<<<<<<< HEAD
+import * as repo from '../repositories/reportes.repository';
+import ExcelJS from 'exceljs';
+
+const hoy = () => new Date().toISOString().split('T')[0];
+const ayer = () => {
+=======
 ﻿import * as repo from '../repositories/reportes.repository';
 import ExcelJS from 'exceljs';
 
 const hoy = () => new Date().toISOString().split('T')[0];
 const hace30 = () => {
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   const d = new Date(); d.setDate(d.getDate() - 30);
   return d.toISOString().split('T')[0];
 };
 
 export const getDatos = async (tipo: string, desde?: string, hasta?: string) => {
+<<<<<<< HEAD
+  const d = desde || ayer();
+  const h = hasta || hoy();
+  switch (tipo) {
+    case 'ventas':           return repo.getReporteVentas(d, h);
+    case 'inventario':       return repo.getReporteInventario();
+    case 'productos':        return repo.getReporteProductosVendidos(d, h);
+    case 'clientes':         return repo.getReporteClientes(d, h);
+    case 'formaspago':       return repo.getReporteFormasPago(d, h);
+    case 'ganancias':        return repo.getReporteGanancias(d, h);
+    case 'resumen':          return repo.getResumenGeneral(d, h);
+    case 'anuladas':         return repo.getReporteAnuladas(d, h);
+=======
   const d = desde || hace30();
   const h = hasta || hoy();
   switch (tipo) {
@@ -22,10 +43,19 @@ export const getDatos = async (tipo: string, desde?: string, hasta?: string) => 
     case 'dia':          return repo.getReporteVentasDia(d);
     case 'vendedor':     return repo.getReporteVendedor(d, h);
     case 'turnos':       return repo.getReporteTurnos(d, h);
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     default: throw new Error('Tipo de reporte no válido');
   }
 };
 
+<<<<<<< HEAD
+export const exportarExcel = async (tipo: string, desde?: string, hasta?: string) => {
+  const data: any[] = await getDatos(tipo, desde, hasta) as any[];
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Reporte');
+
+  if (!data || (Array.isArray(data) && data.length === 0)) {
+=======
 const flattenData = (tipo: string, data: any): any[] => {
   if (tipo === 'resumen') return [data];
   if (tipo === 'dia')     return Array.isArray(data.ventas) ? data.ventas : [];
@@ -41,10 +71,21 @@ export const exportarExcel = async (tipo: string, desde?: string, hasta?: string
   const ws = wb.addWorksheet('Reporte');
 
   if (!data || data.length === 0) {
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     ws.addRow(['Sin datos para el período seleccionado']);
     return wb.xlsx.writeBuffer();
   }
 
+<<<<<<< HEAD
+  const rows = Array.isArray(data) ? data : [data];
+  const cols = Object.keys(rows[0]);
+
+  // Encabezado con estilo
+  ws.addRow(['TIENDA AYSEL — ' + tipo.toUpperCase()]);
+  ws.addRow([`Período: ${desde || ayer()} al ${hasta || hoy()}`]);
+  ws.addRow([]);
+
+=======
   const cols = Object.keys(data[0]);
 
   // Título
@@ -63,11 +104,23 @@ export const exportarExcel = async (tipo: string, desde?: string, hasta?: string
   ws.addRow([]);
 
   // Encabezado
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
   const header = ws.addRow(cols);
   header.eachCell(cell => {
     cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
     cell.font   = { bold: true, color: { argb: 'FFFFFFFF' } };
     cell.border = { bottom: { style: 'thin' } };
+<<<<<<< HEAD
+  });
+
+  rows.forEach(row => {
+    ws.addRow(cols.map(c => row[c]));
+  });
+
+  ws.columns.forEach(col => { col.width = 20; });
+  return wb.xlsx.writeBuffer();
+};
+=======
     cell.alignment = { horizontal: 'center' };
   });
 
@@ -84,3 +137,4 @@ export const exportarExcel = async (tipo: string, desde?: string, hasta?: string
   ws.columns.forEach(col => { col.width = 22; });
   return wb.xlsx.writeBuffer();
 };
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

@@ -67,6 +67,8 @@ export const getAllCategorias = async () => {
     `SELECT IdCategoria, NombreCategoria FROM categorias ORDER BY NombreCategoria ASC`
   );
   return rows;
+<<<<<<< HEAD
+=======
 };
 
 export const getNextCodigo = async () => {
@@ -113,4 +115,5 @@ export const getColores = async () => {
     `SELECT IdColor, NombreColor FROM colores ORDER BY NombreColor ASC`
   );
   return rows;
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 };

@@ -11,7 +11,10 @@ import reportesRoutes from './routes/reportes.routes';
 import clientesRoutes from './routes/clientes.routes';
 import usuariosRoutes from './routes/usuarios.routes';
 import configuracionRoutes from './routes/configuracion.routes';
+<<<<<<< HEAD
+=======
 import promocionesRoutes from './routes/promociones.routes';
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 
 dotenv.config();
 
@@ -33,7 +36,10 @@ app.use('/api/reportes', reportesRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/configuracion', configuracionRoutes);
+<<<<<<< HEAD
+=======
 app.use('/api/promociones', promocionesRoutes);
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'BACKEND FUNCIONADO ' });

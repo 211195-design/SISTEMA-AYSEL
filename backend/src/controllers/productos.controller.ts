@@ -47,6 +47,8 @@ export const listarCategorias = async (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(500).json({ ok: false, mensaje: e.message });
   }
+<<<<<<< HEAD
+=======
 };
 
 export const listarTallas = async (req: Request, res: Response) => {
@@ -71,4 +73,5 @@ export const nextCodigo = async (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(500).json({ ok: false, mensaje: e.message });
   }
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 };
