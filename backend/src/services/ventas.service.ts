@@ -13,7 +13,7 @@ export const obtenerVenta = async (id: number) => {
 
   return {
     ...venta,
-    detalle
+    detalle,
   };
 };
 
@@ -21,12 +21,11 @@ export const registrarVenta = async (
   body: any,
   idUsuario: number
 ) => {
-
   const {
     IdCliente,
     IdFormaPago,
     items,
-    Descuento = 0
+    Descuento = 0,
   } = body;
 
   if (!IdCliente || !IdFormaPago || !items?.length) {
@@ -36,7 +35,6 @@ export const registrarVenta = async (
   }
 
   for (const item of items) {
-
     const inventario =
       await inventarioRepo.getInventarioById(
         item.IdInventario
@@ -79,7 +77,7 @@ export const registrarVenta = async (
     IdFormaPago,
     SubTotal,
     Descuento,
-    Total
+    Total,
   });
 
   await repo.createDetalleVenta(
@@ -90,12 +88,11 @@ export const registrarVenta = async (
       PrecioUnitario: item.PrecioUnitario,
       Descuento: 0,
       SubTotal:
-        item.PrecioUnitario * item.Cantidad
+        item.PrecioUnitario * item.Cantidad,
     }))
   );
 
   for (const item of items) {
-
     const inventario =
       await inventarioRepo.getInventarioById(
         item.IdInventario
@@ -114,7 +111,6 @@ export const registrarVenta = async (
 };
 
 export const anularVenta = async (id: number) => {
-
   const venta = await repo.getVentaById(id);
 
   if (!venta) {

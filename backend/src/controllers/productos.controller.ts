@@ -47,4 +47,31 @@ export const listarCategorias = async (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(500).json({ ok: false, mensaje: e.message });
   }
+<<<<<<< HEAD
+=======
+};
+
+export const listarTallas = async (req: Request, res: Response) => {
+  try {
+    res.json({ ok: true, data: await service.listarTallas() });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, mensaje: e.message });
+  }
+};
+
+export const listarColores = async (req: Request, res: Response) => {
+  try {
+    res.json({ ok: true, data: await service.listarColores() });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, mensaje: e.message });
+  }
+};
+
+export const nextCodigo = async (req: Request, res: Response) => {
+  try {
+    res.json({ ok: true, data: await service.siguienteCodigo() });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, mensaje: e.message });
+  }
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 };

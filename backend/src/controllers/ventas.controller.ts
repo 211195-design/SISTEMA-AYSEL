@@ -59,4 +59,36 @@ export const listarClientes = async (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(500).json({ ok: false, mensaje: e.message });
   }
+<<<<<<< HEAD
 };
+=======
+};
+
+export const reporteTurno = async (req: Request, res: Response) => {
+  try {
+    const { idUsuario, fecha } = req.query;
+    const data = await service.getReporteTurno(Number(idUsuario), String(fecha));
+    res.json({ ok: true, data });
+  } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
+};
+
+export const reporteGeneral = async (req: Request, res: Response) => {
+  try {
+    const { desde, hasta } = req.query;
+    const data = await service.getReporteGeneral(String(desde), String(hasta));
+    res.json({ ok: true, data });
+  } catch (e: any) { res.status(500).json({ ok: false, mensaje: e.message }); }
+};
+
+export const dashboard = async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.token ?? req.headers.authorization?.split(' ')[1];
+    if (!token) { res.status(401).json({ ok: false, mensaje: 'No autenticado' }); return; }
+    const payload = jwt.verify(token, SECRET) as any;
+    const data = await service.getDashboard(payload.IdUsuario);
+    res.json({ ok: true, data });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, mensaje: e.message });
+  }
+};
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

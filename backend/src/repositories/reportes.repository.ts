@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import pool from '../config/database';
+=======
+﻿import pool from '../config/database';
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
 
 export const getReporteVentas = async (desde: string, hasta: string) => {
   const [rows]: any = await pool.query(`
@@ -10,10 +14,17 @@ export const getReporteVentas = async (desde: string, hasta: string) => {
       CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor,
       COUNT(dv.IdDetalleVenta) AS TotalItems
     FROM ventas v
+<<<<<<< HEAD
     INNER JOIN clientes   c  ON v.IdCliente  = c.IdCliente
     INNER JOIN formaspago f  ON v.IdFormaPago = f.IdFormaPago
     INNER JOIN usuarios   u  ON v.IdUsuario   = u.IdUsuario
     INNER JOIN detalleventa dv ON v.IdVenta   = dv.IdVenta
+=======
+    INNER JOIN clientes     c  ON v.IdCliente   = c.IdCliente
+    INNER JOIN formaspago   f  ON v.IdFormaPago  = f.IdFormaPago
+    INNER JOIN usuarios     u  ON v.IdUsuario    = u.IdUsuario
+    INNER JOIN detalleventa dv ON v.IdVenta      = dv.IdVenta
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
     AND v.Estado = 'Completado'
     GROUP BY v.IdVenta
@@ -54,10 +65,17 @@ export const getReporteProductosVendidos = async (desde: string, hasta: string) 
       SUM(dv.Cantidad * p.PrecioCompra) AS TotalCosto,
       SUM(dv.SubTotal) - SUM(dv.Cantidad * p.PrecioCompra) AS Ganancia
     FROM detalleventa dv
+<<<<<<< HEAD
     INNER JOIN ventas     v  ON dv.IdVenta    = v.IdVenta
     INNER JOIN inventario i  ON dv.IdInventario = i.IdInventario
     INNER JOIN productos  p  ON i.IdProducto  = p.IdProducto
     INNER JOIN categorias c  ON p.IdCategoria = c.IdCategoria
+=======
+    INNER JOIN ventas     v  ON dv.IdVenta      = v.IdVenta
+    INNER JOIN inventario i  ON dv.IdInventario = i.IdInventario
+    INNER JOIN productos  p  ON i.IdProducto    = p.IdProducto
+    INNER JOIN categorias c  ON p.IdCategoria   = c.IdCategoria
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de
     WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
     AND v.Estado = 'Completado'
     GROUP BY p.IdProducto
@@ -183,4 +201,102 @@ export const getReporteAnuladas = async (desde: string, hasta: string) => {
     ORDER BY v.FechaVenta DESC
   `, [desde, hasta]);
   return rows;
+<<<<<<< HEAD
 };
+=======
+};
+
+// ─── NUEVAS FUNCIONES ────────────────────────────────────────────────────────
+
+// Reporte 1: Ventas del día con detalle de boletas
+export const getReporteVentasDia = async (fecha: string) => {
+  const [ventas]: any = await pool.query(`
+    SELECT
+      v.IdVenta, v.NumeroBoleta,
+      DATE_FORMAT(v.FechaVenta, '%H:%i') AS Hora,
+      v.SubTotal, v.Descuento, v.Total,
+      CONCAT(c.Nombres, ' ', c.Apellidos) AS Cliente,
+      c.DNI,
+      f.NombreFormaPago,
+      CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor
+    FROM ventas v
+    INNER JOIN clientes   c ON v.IdCliente   = c.IdCliente
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    INNER JOIN usuarios   u ON v.IdUsuario   = u.IdUsuario
+    WHERE DATE(v.FechaVenta) = ?
+    AND v.Estado = 'Completado'
+    ORDER BY v.FechaVenta ASC
+  `, [fecha]);
+
+  const [[resumen]]: any = await pool.query(`
+    SELECT
+      COUNT(*)                       AS TotalBoletas,
+      COALESCE(SUM(Total), 0)        AS TotalIngresos,
+      COALESCE(SUM(Descuento), 0)    AS TotalDescuentos,
+      COALESCE(AVG(Total), 0)        AS PromedioVenta
+    FROM ventas
+    WHERE DATE(FechaVenta) = ?
+    AND Estado = 'Completado'
+  `, [fecha]);
+
+  return { resumen, ventas };
+};
+
+// Reporte 2: Ventas por vendedor
+export const getReporteVendedor = async (desde: string, hasta: string) => {
+  const [rows]: any = await pool.query(`
+    SELECT
+      u.IdUsuario,
+      CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor,
+      u.Rol,
+      COUNT(v.IdVenta)            AS TotalVentas,
+      COALESCE(SUM(v.Total), 0)   AS TotalIngresos,
+      COALESCE(AVG(v.Total), 0)   AS PromedioVenta,
+      COALESCE(SUM(v.Descuento), 0) AS TotalDescuentos,
+      MAX(DATE(v.FechaVenta))     AS UltimaVenta
+    FROM usuarios u
+    LEFT JOIN ventas v ON u.IdUsuario = v.IdUsuario
+      AND DATE(v.FechaVenta) BETWEEN ? AND ?
+      AND v.Estado = 'Completado'
+    WHERE u.Estado = 1
+    GROUP BY u.IdUsuario
+    ORDER BY TotalIngresos DESC
+  `, [desde, hasta]);
+  return rows;
+};
+
+// Reporte 3: Ventas por turno (Mañana 08:00-13:59 / Tarde 14:00-21:59)
+export const getReporteTurnos = async (desde: string, hasta: string) => {
+  const [porDia]: any = await pool.query(`
+    SELECT
+      DATE(v.FechaVenta) AS Fecha,
+      CASE
+        WHEN TIME(v.FechaVenta) BETWEEN '08:00:00' AND '13:59:59' THEN 'Mañana'
+        WHEN TIME(v.FechaVenta) BETWEEN '14:00:00' AND '21:59:59' THEN 'Tarde'
+        ELSE 'Fuera de turno'
+      END AS Turno,
+      CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor,
+      COUNT(v.IdVenta)          AS TotalVentas,
+      COALESCE(SUM(v.Total), 0) AS TotalIngresos
+    FROM ventas v
+    INNER JOIN usuarios u ON v.IdUsuario = u.IdUsuario
+    WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
+    AND v.Estado = 'Completado'
+    GROUP BY Fecha, Turno, v.IdUsuario
+    ORDER BY Fecha DESC, Turno ASC
+  `, [desde, hasta]);
+
+  const [[resumen]]: any = await pool.query(`
+    SELECT
+      COALESCE(SUM(CASE WHEN TIME(FechaVenta) BETWEEN '08:00:00' AND '13:59:59' THEN Total ELSE 0 END), 0) AS IngresosMañana,
+      COALESCE(SUM(CASE WHEN TIME(FechaVenta) BETWEEN '14:00:00' AND '21:59:59' THEN Total ELSE 0 END), 0) AS IngresosTarde,
+      COUNT(CASE WHEN TIME(FechaVenta) BETWEEN '08:00:00' AND '13:59:59' THEN 1 END) AS VentasMañana,
+      COUNT(CASE WHEN TIME(FechaVenta) BETWEEN '14:00:00' AND '21:59:59' THEN 1 END) AS VentasTarde
+    FROM ventas
+    WHERE DATE(FechaVenta) BETWEEN ? AND ?
+    AND Estado = 'Completado'
+  `, [desde, hasta]);
+
+  return { resumen, detalle: porDia };
+};
+>>>>>>> d56977fed07c124c6a23093b46c6b3b12da548de

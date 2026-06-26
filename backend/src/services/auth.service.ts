@@ -8,38 +8,29 @@ export const loginService = async (
 ): Promise<ILoginResponse> => {
   const usuario = await findUsuarioByNombre(credentials.NombreUsuario);
 
-  if (!usuario) {
-    throw new Error('Credenciales inválidas');
-  }
+  if (!usuario) throw new Error('Credenciales inválidas');
 
-  const passwordValida = await bcrypt.compare(
-    credentials.Contrasena,
-    usuario.Clave
-  );
+  const passwordValida = await bcrypt.compare(credentials.Contrasena, usuario.Clave);
+  if (!passwordValida) throw new Error('Credenciales inválidas');
 
-  if (!passwordValida) {
-    throw new Error('Credenciales inválidas');
-  }
-
-  if (usuario.Estado === 0) {
-    throw new Error('Usuario inactivo');
-  }
+  if (usuario.Estado === 0) throw new Error('Usuario inactivo');
 
   const token = generateToken({
-    IdUsuario: usuario.IdUsuario,
-    IdRol: usuario.IdRol,
-    Nombres: usuario.Nombres,   // ← nuevo
-    Correo: usuario.Correo,     // ← nuevo
+    IdUsuario : usuario.IdUsuario,
+    IdRol     : usuario.IdRol,
+    NombreRol : usuario.NombreRol,
+    Nombres   : usuario.Nombres,
+    Correo    : usuario.Correo,
   });
 
   return {
     token,
     usuario: {
-      IdUsuario: usuario.IdUsuario,
-      Usuario: usuario.Usuario,
-      NombreRol: usuario.NombreRol,
-      Nombres: usuario.Nombres,  // ← nuevo
-      Correo: usuario.Correo,    // ← nuevo
+      IdUsuario : usuario.IdUsuario,
+      Usuario   : usuario.Usuario,
+      Nombres   : usuario.Nombres,
+      Correo    : usuario.Correo,
+      NombreRol : usuario.NombreRol,
     },
   };
 };
