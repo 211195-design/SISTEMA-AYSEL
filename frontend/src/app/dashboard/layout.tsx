@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -12,6 +12,8 @@ import {
 
 
 import { Bolt } from "lucide-react";
+import Image from 'next/image';
+
 
 const menuItems = [
   {
@@ -55,13 +57,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
 
-      {/* ── Sidebar ── */}
+      {/* â”€â”€ Sidebar â”€â”€ */}
       <aside className="w-56 bg-white flex flex-col shadow-md shrink-0">
 
         {/* Logo */}
         <div className="flex flex-col items-center py-6 border-b border-gray-100">
-          <div className="w-14 h-14 rounded-full border-2 border-purple-200 flex items-center justify-center bg-purple-50 mb-2">
-            <span className="text-purple-600 font-bold text-lg">A</span>
+          <div className="w-14 h-14 rounded-full border-2 border-yellow-400 flex items-center justify-center bg-yellow-50 mb-2 overflow-hidden">
+            <Image src="/aysel.jpeg" alt="Logo Tienda Aysel" width={56} height={56} className="object-cover" />
           </div>
           <p className="text-sm font-bold text-gray-800">Tienda Aysel</p>
           <p className="text-xs text-gray-400">Panel Administrador</p>
@@ -95,18 +97,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
           >
             <LogOut size={17} />
-            Cerrar sesión
+            Cerrar sesion
           </button>
         </div>
       </aside>
 
-      {/* ── Main ── */}
+      {/* â”€â”€ Main â”€â”€ */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Topbar */}
         <header className="bg-white shadow-sm px-6 py-3 flex items-center justify-between shrink-0">
           <p className="text-sm font-semibold text-gray-700">
-            Tienda Aysel — <span className="text-gray-400 font-normal">Administrador</span>
+            Tienda Aysel â€” <span className="text-gray-400 font-normal">Administrador</span>
           </p>
           <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm">
             {initials}
@@ -121,3 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
+
+
+

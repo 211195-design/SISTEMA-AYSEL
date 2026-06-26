@@ -5,6 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getUserFromToken, logout } from '@/lib/auth';
 import Link from 'next/link';
 import { LayoutDashboard, ShoppingCart, FileText, Package, Users, LogOut,BarChart2 } from 'lucide-react';
+import Image from 'next/image';
+
+
 
 const navItems = [
   { label: 'Dashboard',      href: '/pos/dashboard',     icon: LayoutDashboard   },
@@ -38,7 +41,7 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
         <div className="p-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm">A</span>
+              <Image src="/aysel.jpeg" alt="Logo Tienda Aysel" width={56} height={56} className="object-cover" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-gray-800 truncate">Tienda Aysel</p>
