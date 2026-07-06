@@ -66,7 +66,6 @@ function FlowerCanvas() {
     resize();
     window.addEventListener('resize', resize);
 
-    // Flores fijas en lado izquierdo
     type Flower = {
       x: number; y: number; baseY: number;
       size: number; phase: number; speed: number;
@@ -80,7 +79,6 @@ function FlowerCanvas() {
       { x: 0.18, y: 0.82, baseY: 0.82, size: 50, phase: 0.7,  speed: 0.008, petals: 5, color1: '#8833ff', color2: '#bb77ff' },
       { x: 0.10, y: 0.25, baseY: 0.25, size: 35, phase: 1.8,  speed: 0.013, petals: 6, color1: '#5511ee', color2: '#9944ff' },
       { x: 0.22, y: 0.65, baseY: 0.65, size: 42, phase: 3.0,  speed: 0.010, petals: 5, color1: '#7722ff', color2: '#aa66ff' },
-      // flores doradas (imagen 2 referencia)
       { x: 0.12, y: 0.88, baseY: 0.88, size: 48, phase: 0.4,  speed: 0.007, petals: 6, color1: '#c9a84c', color2: '#f0d080' },
       { x: 0.20, y: 0.45, baseY: 0.45, size: 36, phase: 2.5,  speed: 0.014, petals: 5, color1: '#b8860b', color2: '#daa520' },
     ];
@@ -94,7 +92,6 @@ function FlowerCanvas() {
 
       ctx.save();
 
-      // Tallo
       ctx.beginPath();
       ctx.moveTo(cx, cy + s * 0.8);
       ctx.quadraticCurveTo(cx + s * 0.2, cy + s * 1.4, cx, cy + s * 2.0);
@@ -102,13 +99,11 @@ function FlowerCanvas() {
       ctx.lineWidth   = 2;
       ctx.stroke();
 
-      // Hojitas
       ctx.beginPath();
       ctx.ellipse(cx + s * 0.3, cy + s * 1.3, s * 0.25, s * 0.12, 0.5, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(60,180,80,0.45)';
       ctx.fill();
 
-      // Pétalos
       for (let p = 0; p < f.petals; p++) {
         const angle = (p / f.petals) * Math.PI * 2;
         const px    = cx + Math.cos(angle) * s * 0.55;
@@ -122,7 +117,6 @@ function FlowerCanvas() {
         ctx.fill();
       }
 
-      // Centro con glow
       const cGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.28);
       cGrad.addColorStop(0, '#ffffff88');
       cGrad.addColorStop(0.4, f.color2 + 'dd');
@@ -168,10 +162,21 @@ function FlowerCanvas() {
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading, error } = useLogin();
+  const [selectedRol, setSelectedRol] = useState<string>('');
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
+
+  // Cuando se selecciona un rol, se autocompleta el correo según el rol
+  const handleRolSelect = (rol: string) => {
+    setSelectedRol(rol);
+    if (rol === 'ADMINISTRADOR') {
+      setValue('correo', 'admin@aysel.com');
+    } else if (rol === 'VENDEDOR') {
+      setValue('correo', 'vendedor@aysel.com');
+    }
+  };
 
   async function onSubmit(data: LoginFormValues) {
     const response = await login(data);
@@ -204,7 +209,7 @@ export default function LoginPage() {
       {/* Canvas flores animadas */}
       <FlowerCanvas />
 
-      {/* Imagen flores doradas (image.png) lado izquierdo */}
+      {/* Imagen flores doradas */}
       <div
         className="absolute left-0 bottom-0 w-[42%] h-[90%] pointer-events-none"
         style={{
@@ -219,7 +224,7 @@ export default function LoginPage() {
         }}
       />
 
-      {/* Overlay degradado izq→der */}
+      {/* Overlay degradado */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -287,11 +292,90 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* ══ SELECTOR DE ROL ══ */}
+          <div className="mb-6">
+            <label className="block text-[10px] font-semibold tracking-[0.25em] uppercase mb-3 text-center"
+              style={{ color: '#c9a84c' }}>
+              Seleccionar Rol
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => handleRolSelect('ADMINISTRADOR')}
+                className={`flex-1 py-2.5 text-xs font-bold tracking-[0.15em] uppercase rounded-xl transition-all duration-300 ${
+                  selectedRol === 'ADMINISTRADOR'
+                    ? 'text-[#06000f]'
+                    : 'text-[#c9a84c]'
+                }`}
+                style={{
+                  background: selectedRol === 'ADMINISTRADOR'
+                    ? 'linear-gradient(135deg, #b8860b, #c9a84c, #f0d080)'
+                    : 'rgba(255,255,255,0.04)',
+                  border: selectedRol === 'ADMINISTRADOR'
+                    ? '1px solid #c9a84c'
+                    : '1px solid rgba(201,168,76,0.25)',
+                  boxShadow: selectedRol === 'ADMINISTRADOR'
+                    ? '0 0 20px rgba(201,168,76,0.3)'
+                    : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedRol !== 'ADMINISTRADOR') {
+                    e.currentTarget.style.border = '1px solid rgba(201,168,76,0.6)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedRol !== 'ADMINISTRADOR') {
+                    e.currentTarget.style.border = '1px solid rgba(201,168,76,0.25)';
+                  }
+                }}
+              >
+                Administrador
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRolSelect('VENDEDOR')}
+                className={`flex-1 py-2.5 text-xs font-bold tracking-[0.15em] uppercase rounded-xl transition-all duration-300 ${
+                  selectedRol === 'VENDEDOR'
+                    ? 'text-[#06000f]'
+                    : 'text-[#c9a84c]'
+                }`}
+                style={{
+                  background: selectedRol === 'VENDEDOR'
+                    ? 'linear-gradient(135deg, #b8860b, #c9a84c, #f0d080)'
+                    : 'rgba(255,255,255,0.04)',
+                  border: selectedRol === 'VENDEDOR'
+                    ? '1px solid #c9a84c'
+                    : '1px solid rgba(201,168,76,0.25)',
+                  boxShadow: selectedRol === 'VENDEDOR'
+                    ? '0 0 20px rgba(201,168,76,0.3)'
+                    : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedRol !== 'VENDEDOR') {
+                    e.currentTarget.style.border = '1px solid rgba(201,168,76,0.6)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedRol !== 'VENDEDOR') {
+                    e.currentTarget.style.border = '1px solid rgba(201,168,76,0.25)';
+                  }
+                }}
+              >
+                Vendedor
+              </button>
+            </div>
+            {!selectedRol && (
+              <p className="text-xs text-center mt-2" style={{ color: 'rgba(201,168,76,0.4)' }}>
+                Selecciona un rol para continuar
+              </p>
+            )}
+          </div>
+
           {/* Formulario */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label className="block text-[10px] font-semibold tracking-[0.25em] uppercase mb-2"
-                style={{ color: '#c9a84c' }}>Usuario</label>
+                style={{ color: '#c9a84c' }}>Correo electrónico</label>
               <input
                 {...register('correo')}
                 className="w-full px-4 py-3 text-sm rounded-xl outline-none transition-all duration-300 text-white placeholder-gray-600"
@@ -305,7 +389,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-[10px] font-semibold tracking-[0.25em] uppercase mb-2"
-                style={{ color: '#c9a84c' }}>Contrasena</label>
+                style={{ color: '#c9a84c' }}>Contraseña</label>
               <input
                 {...register('contrasena')}
                 type="password"
@@ -327,13 +411,25 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full py-3 rounded-xl font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 mt-2 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #b8860b, #c9a84c, #f0d080, #c9a84c)', color: '#06000f', boxShadow: '0 4px 22px rgba(201,168,76,0.45)' }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 32px rgba(201,168,76,0.7)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 22px rgba(201,168,76,0.45)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              disabled={isLoading || !selectedRol}
+              className="w-full py-3 rounded-xl font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: 'linear-gradient(135deg, #b8860b, #c9a84c, #f0d080, #c9a84c)',
+                color: '#06000f',
+                boxShadow: '0 4px 22px rgba(201,168,76,0.45)',
+              }}
+              onMouseEnter={e => {
+                if (!isLoading && selectedRol) {
+                  e.currentTarget.style.boxShadow = '0 6px 32px rgba(201,168,76,0.7)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.boxShadow = '0 4px 22px rgba(201,168,76,0.45)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
-              {isLoading ? 'Verificando...' : 'Ingresar'}
+              {isLoading ? 'Verificando...' : 'Iniciar Sesión'}
             </button>
           </form>
 
