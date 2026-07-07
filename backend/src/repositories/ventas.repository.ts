@@ -64,10 +64,10 @@ export const getNextNumeroBoleta = async () => {
   const [rows]: any = await pool.query(
     `SELECT NumeroBoleta FROM ventas ORDER BY IdVenta DESC LIMIT 1`
   );
-  if (rows.length === 0) return 'B001';
-  const last = rows[0].NumeroBoleta ?? 'B000';
+  if (rows.length === 0) return 'B0000001';
+  const last = rows[0].NumeroBoleta ?? 'B0000000';
   const num = parseInt(last.replace(/\D/g, '')) + 1;
-  return `B${String(num).padStart(3, '0')}`;
+  return `B${String(num).padStart(7, '0')}`;
 };
 
 export const createVenta = async (data: {
@@ -218,8 +218,6 @@ export const getReporteGeneral = async (desde: string, hasta: string) => {
   return { resumen: resumen[0], porVendedor, porFormaPago, porDia };
 };
 
-
-// â”€â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const getDashboard = async (idUsuario: number) => {
   // Fechas en hora Lima (UTC-5)
@@ -372,6 +370,26 @@ export const getDashboard = async (idUsuario: number) => {
   };
 };
 
+export const createClienteRapido = async (data: {
+  DNI?: string; Nombres: string; Apellidos?: string; Telefono?: string;
+}) => {
+  const [result]: any = await pool.query(`
+    INSERT INTO clientes (DNI, Nombres, Apellidos, Telefono, FechaRegistro, Estado)
+    VALUES (?, ?, ?, ?, NOW(), 1)
+  `, [data.DNI ?? null, data.Nombres, data.Apellidos ?? '', data.Telefono ?? null]);
+  return result.insertId;
+};
 
-
+export const getOrCreateClienteSimple = async () => {
+  // Cliente genérico para ventas rápidas sin datos
+  const [rows]: any = await pool.query(
+    `SELECT IdCliente FROM clientes WHERE DNI = '00000000' LIMIT 1`
+  );
+  if (rows.length > 0) return rows[0].IdCliente;
+  const [result]: any = await pool.query(`
+    INSERT INTO clientes (DNI, Nombres, Apellidos, FechaRegistro, Estado)
+    VALUES ('00000000', 'Cliente', 'General', NOW(), 1)
+  `);
+  return result.insertId;
+};
 

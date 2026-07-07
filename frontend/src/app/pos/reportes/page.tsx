@@ -23,7 +23,7 @@ const hace7= () => { const d = new Date(); d.setDate(d.getDate()-7); return d.to
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: 'dia',        label: 'Ventas del Día',  icon: Calendar   },
   { key: 'turnos',     label: 'Por Turno',        icon: BarChart2  },
-  { key: 'vendedor',   label: 'Vendedores',       icon: Users      },
+  
   { key: 'clientes',   label: 'Clientes',         icon: Users      },
   { key: 'formaspago', label: 'Formas de Pago',   icon: CreditCard },
   { key: 'inventario', label: 'Inventario',       icon: Package    },

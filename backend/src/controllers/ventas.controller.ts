@@ -88,3 +88,34 @@ export const dashboard = async (req: Request, res: Response) => {
     res.status(500).json({ ok: false, mensaje: e.message });
   }
 };
+
+export const generarBoleta = async (req: Request, res: Response) => {
+  try {
+    const { generarBoletaPDF } = await import('../utils/boleta.generator');
+    const venta   = await service.obtenerVenta(Number(req.params.id));
+    const tipo    = (req.query.tipo as string ?? 'BOLETA').toUpperCase() as 'BOLETA' | 'FACTURA';
+
+    const buffer = await generarBoletaPDF({
+      NumeroBoleta:    venta.NumeroBoleta,
+      TipoComprobante: tipo,
+      FechaVenta:      venta.FechaVenta,
+      Cliente:         venta.Cliente,
+      DNI:             venta.DNI,
+      RUC:             req.query.ruc as string,
+      Telefono:        venta.Telefono,
+      NombreFormaPago: venta.NombreFormaPago,
+      Vendedor:        venta.Vendedor,
+      SubTotal:        venta.SubTotal,
+      Descuento:       venta.Descuento,
+      Total:           venta.Total,
+      detalle:         venta.detalle,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition',
+      `inline; filename=${venta.NumeroBoleta}.pdf`);
+    res.send(buffer);
+  } catch (e: any) {
+    res.status(400).json({ ok: false, mensaje: e.message });
+  }
+};
