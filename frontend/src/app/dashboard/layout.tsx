@@ -108,7 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Topbar */}
         <header className="bg-white shadow-sm px-6 py-3 flex items-center justify-between shrink-0">
           <p className="text-sm font-semibold text-gray-700">
-            Tienda Aysel â€” <span className="text-gray-400 font-normal">Administrador</span>
+            Tienda Aysel ” <span className="text-gray-400 font-normal">Administrador</span>
           </p>
           <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm">
             {initials}

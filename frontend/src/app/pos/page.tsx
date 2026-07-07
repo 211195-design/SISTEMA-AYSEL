@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api-client';
 import { getUserFromToken } from '@/lib/auth';
 import {
   ShoppingCart, Search, Trash2, Plus, Minus,
-  User, UserPlus, X, CheckCircle, Tag
+  User, UserPlus, X, CheckCircle, Tag, FileText, MessageCircle
 } from 'lucide-react';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -30,6 +30,8 @@ interface LineaCarrito {
 
 type TipoCliente = 'simple' | 'registrado' | 'nuevo';
 type TipoComprobante = 'Boleta' | 'Factura';
+
+const BASE_URL = 'http://localhost:3001';
 
 const fmt = (v: number) =>
   `S/ ${v.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
@@ -71,7 +73,9 @@ export default function PosPage() {
 
   // Resultado
   const [procesando, setProcesando]   = useState(false);
-  const [ventaOk, setVentaOk]         = useState<{ boleta: string; total: number } | null>(null);
+  const [ventaOk, setVentaOk]         = useState<{
+    idVenta: number; boleta: string; total: number; telefono?: string;
+  } | null>(null);
   const [errorVenta, setErrorVenta]   = useState<string | null>(null);
 
   // Hora en tiempo real
@@ -174,6 +178,7 @@ export default function PosPage() {
     setProcesando(true); setErrorVenta(null);
     try {
       let idCliente: number;
+      let telefonoCliente: string | undefined;
 
       if (tipoCliente === 'simple') {
         // Cliente genérico — busca o crea "Cliente General"
@@ -182,10 +187,12 @@ export default function PosPage() {
           body: JSON.stringify({ DNI: '00000000', Nombres: 'Cliente', Apellidos: 'General' }),
         });
         idCliente = r.data.IdCliente;
+        telefonoCliente = undefined;
 
       } else if (tipoCliente === 'registrado') {
         if (!clienteSel) { setErrorVenta('Selecciona un cliente'); setProcesando(false); return; }
         idCliente = clienteSel.IdCliente;
+        telefonoCliente = clienteSel.Telefono;
 
       } else {
         // Nuevo cliente
@@ -196,6 +203,7 @@ export default function PosPage() {
           method: 'POST', body: JSON.stringify(nuevoForm),
         });
         idCliente = r.data.IdCliente;
+        telefonoCliente = nuevoForm.Telefono || undefined;
       }
 
       const user = getUserFromToken();
@@ -214,13 +222,35 @@ export default function PosPage() {
         }),
       });
 
-      setVentaOk({ boleta: r.data.NumeroBoleta ?? 'OK', total: totalFinal });
+      setVentaOk({
+        idVenta: r.data.IdVenta,
+        boleta: r.data.NumeroBoleta ?? 'OK',
+        total: totalFinal,
+        telefono: r.data.Telefono ?? telefonoCliente,
+      });
       limpiarCarrito();
     } catch (e: any) {
       setErrorVenta(e.message);
     } finally {
       setProcesando(false);
     }
+  };
+
+  // ── PDF y WhatsApp ──
+  const urlBoleta = (idVenta: number) =>
+    `${BASE_URL}/api/ventas/${idVenta}/boleta?tipo=${comprobante.toLowerCase()}`;
+
+  const enviarWhatsapp = (telefono: string | undefined, boleta: string, idVenta: number) => {
+    if (!telefono) {
+      alert('Este cliente no tiene número de teléfono registrado.');
+      return;
+    }
+    const tel = telefono.replace(/\D/g, '');
+    const telConCodigo = tel.startsWith('51') ? tel : `51${tel}`;
+    const mensaje = encodeURIComponent(
+      `Hola, aquí está tu comprobante ${boleta} de Tienda Aysel. Puedes verlo/descargarlo aquí: ${urlBoleta(idVenta)}`
+    );
+    window.open(`https://wa.me/${telConCodigo}?text=${mensaje}`, '_blank');
   };
 
   if (cargando) return (
@@ -550,6 +580,19 @@ export default function PosPage() {
             <h2 className="text-xl font-bold text-gray-800 mb-1">¡Venta registrada!</h2>
             <p className="text-gray-500 text-sm mb-2">Comprobante: <strong>{ventaOk.boleta}</strong></p>
             <p className="text-3xl font-bold text-purple-600 mb-6">{fmt(ventaOk.total)}</p>
+
+            <div className="flex gap-3 mb-3">
+              <a href={urlBoleta(ventaOk.idVenta)} target="_blank" rel="noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">
+                <FileText size={16} /> Ver PDF
+              </a>
+              <button type="button"
+                onClick={() => enviarWhatsapp(ventaOk.telefono, ventaOk.boleta, ventaOk.idVenta)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600 font-medium">
+                <MessageCircle size={16} /> WhatsApp
+              </button>
+            </div>
+
             <button type="button" onClick={() => setVentaOk(null)}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition-colors">
               Nueva venta

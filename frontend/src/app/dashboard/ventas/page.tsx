@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
-import { ShoppingCart, Plus, Eye, XCircle, X, Trash2, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Eye, XCircle, X, Trash2, Search, FileText, MessageCircle, CheckCircle2 } from 'lucide-react';
 
 interface Venta {
   IdVenta: number; NumeroBoleta: string; FechaVenta: string;
@@ -13,7 +13,7 @@ interface DetalleItem {
   NombreTalla: string; NombreColor: string;
   Cantidad: number; PrecioUnitario: string; Descuento: string; SubTotal: string;
 }
-interface VentaDetalle extends Venta { detalle: DetalleItem[]; }
+interface VentaDetalle extends Venta { detalle: DetalleItem[]; Telefono?: string; }
 interface Cliente { IdCliente: number; DNI: string; Nombres: string; Apellidos: string; Telefono: string; TotalCompras?: number; }
 interface FormaPago { IdFormaPago: number; NombreFormaPago: string; }
 interface ItemInventario {
@@ -26,12 +26,23 @@ interface LineaVenta {
   NombreTalla: string; NombreColor: string;
   Cantidad: number; PrecioUnitario: number; StockActual: number;
 }
+interface ClienteNuevo {
+  DNI: string; Nombres: string; Apellidos: string; Telefono: string;
+}
+interface VentaCreada {
+  IdVenta: number; NumeroBoleta: string; Telefono?: string; Cliente?: string;
+}
+
+const BASE_URL = 'http://localhost:3001';
 
 const fmt = (v: string | number) =>
   `S/ ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
 
 const fechaLocal = (iso: string) =>
   new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+
+type TipoCliente = 'registrado' | 'simple' | 'nuevo';
+type TipoComprobante = 'BOLETA' | 'FACTURA';
 
 export default function VentasPage() {
   const [ventas, setVentas]           = useState<Venta[]>([]);
@@ -52,6 +63,16 @@ export default function VentasPage() {
   const [guardando, setGuardando]     = useState(false);
   const [msgNueva, setMsgNueva]       = useState<string | null>(null);
 
+  // Tipo de cliente
+  const [tipoCliente, setTipoCliente] = useState<TipoCliente>('registrado');
+  const [clienteNuevo, setClienteNuevo] = useState<ClienteNuevo>({
+    DNI: '', Nombres: '', Apellidos: '', Telefono: '',
+  });
+
+  // Tipo de comprobante
+  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('BOLETA');
+  const [rucFactura, setRucFactura] = useState('');
+
   // Búsqueda cliente
   const [busqCliente, setBusqCliente] = useState('');
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
@@ -59,6 +80,9 @@ export default function VentasPage() {
 
   // Búsqueda producto
   const [busqProd, setBusqProd]       = useState('');
+
+  // Boleta generada (post-venta)
+  const [ventaCreada, setVentaCreada] = useState<VentaCreada | null>(null);
 
   const cargarVentas = () => {
     setCargando(true);
@@ -91,7 +115,6 @@ export default function VentasPage() {
       apiFetch<{ ok: boolean; data: FormaPago[] }>('/ventas/formaspago'),
       apiFetch<{ ok: boolean; data: ItemInventario[] }>('/inventario'),
     ]);
-    // Solo productos activos con stock > 0
     setClientes(c.data);
     setFormasPago(f.data);
     setInventario(inv.data.filter(i => i.StockActual > 0));
@@ -103,6 +126,11 @@ export default function VentasPage() {
     setClienteSeleccionado(null);
     setMostrarClientes(false);
     setMsgNueva(null);
+    setTipoCliente('registrado');
+    setClienteNuevo({ DNI: '', Nombres: '', Apellidos: '', Telefono: '' });
+    setTipoComprobante('BOLETA');
+    setRucFactura('');
+    setVentaCreada(null);
     setModalNueva(true);
   };
 
@@ -163,34 +191,70 @@ export default function VentasPage() {
   const montoDesc    = subTotal * (Number(pctDescuento) / 100);
   const totalFinal   = subTotal - montoDesc;
 
+  const validarClienteOk = () => {
+    if (tipoCliente === 'registrado') return !!clienteSeleccionado;
+    if (tipoCliente === 'nuevo') return clienteNuevo.Nombres.trim().length > 0;
+    return true; // simple
+  };
+
   const guardarVenta = async () => {
-    if (!clienteSeleccionado || !idFormaPago || lineas.length === 0) {
+    if (!validarClienteOk() || !idFormaPago || lineas.length === 0) {
       setMsgNueva('❌ Completa cliente, forma de pago y al menos un producto');
       return;
     }
     setGuardando(true); setMsgNueva(null);
     try {
-      await apiFetch('/ventas', {
+      const body: any = {
+        IdFormaPago: Number(idFormaPago),
+        Descuento: montoDesc,
+        TipoCliente: tipoCliente,
+        TipoComprobante: tipoComprobante,
+        items: lineas.map(l => ({
+          IdInventario:   l.IdInventario,
+          Cantidad:       l.Cantidad,
+          PrecioUnitario: l.PrecioUnitario,
+        })),
+      };
+      if (tipoCliente === 'registrado') body.IdCliente = clienteSeleccionado?.IdCliente;
+      if (tipoCliente === 'nuevo') body.ClienteNuevo = clienteNuevo;
+
+      const r = await apiFetch<{ ok: boolean; data: VentaDetalle }>('/ventas', {
         method: 'POST',
-        body: JSON.stringify({
-          IdCliente:   clienteSeleccionado.IdCliente,
-          IdFormaPago: Number(idFormaPago),
-          Descuento:   montoDesc,
-          items: lineas.map(l => ({
-            IdInventario:   l.IdInventario,
-            Cantidad:       l.Cantidad,
-            PrecioUnitario: l.PrecioUnitario,
-          })),
-        }),
+        body: JSON.stringify(body),
       });
+
       setMsgNueva('✅ Venta registrada correctamente');
       cargarVentas();
-      setTimeout(() => setModalNueva(false), 1000);
+      setVentaCreada({
+        IdVenta: r.data.IdVenta,
+        NumeroBoleta: r.data.NumeroBoleta,
+        Telefono: r.data.Telefono,
+        Cliente: r.data.Cliente,
+      });
     } catch (e: any) {
       setMsgNueva(`❌ ${e.message}`);
     } finally {
       setGuardando(false);
     }
+  };
+
+  const urlBoleta = (idVenta: number) => {
+    const tipo = tipoComprobante.toLowerCase();
+    const ruc = tipoComprobante === 'FACTURA' && rucFactura ? `&ruc=${rucFactura}` : '';
+    return `${BASE_URL}/api/ventas/${idVenta}/boleta?tipo=${tipo}${ruc}`;
+  };
+
+  const enviarWhatsapp = (telefono: string | undefined, numeroBoleta: string, idVenta: number) => {
+    if (!telefono) {
+      alert('Este cliente no tiene número de teléfono registrado.');
+      return;
+    }
+    const tel = telefono.replace(/\D/g, '');
+    const telConCodigo = tel.startsWith('51') ? tel : `51${tel}`;
+    const mensaje = encodeURIComponent(
+      `Hola, aquí está tu comprobante ${numeroBoleta} de Tienda Aysel. Puedes verlo/descargarlo aquí: ${urlBoleta(idVenta)}`
+    );
+    window.open(`https://wa.me/${telConCodigo}?text=${mensaje}`, '_blank');
   };
 
   const totalVentas  = ventas.length;
@@ -297,6 +361,10 @@ export default function VentasPage() {
                         className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500" title="Ver detalle">
                         <Eye size={15} />
                       </button>
+                      <a href={`${BASE_URL}/api/ventas/${v.IdVenta}/boleta`} target="_blank" rel="noreferrer"
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500" title="Ver boleta">
+                        <FileText size={15} />
+                      </a>
                       {v.Estado === 'Completado' && (
                         <button onClick={() => anularVenta(v.IdVenta)}
                           className="p-1.5 rounded-lg hover:bg-red-50 text-red-400" title="Anular">
@@ -321,7 +389,7 @@ export default function VentasPage() {
                 <h2 className="text-base font-bold text-gray-800">Boleta {detalle.NumeroBoleta}</h2>
                 <p className="text-xs text-gray-400">{fechaLocal(detalle.FechaVenta)}</p>
               </div>
-              <button type = "button" onClick={() => setDetalle(null)} aria-label="Cerrar modal" className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              <button type="button" onClick={() => setDetalle(null)} aria-label="Cerrar modal" className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -349,6 +417,16 @@ export default function VentasPage() {
                 <div className="flex justify-between text-gray-500"><span>Descuento</span><span>- {fmt(detalle.Descuento)}</span></div>
                 <div className="flex justify-between font-bold text-gray-800 text-base"><span>Total</span><span>{fmt(detalle.Total)}</span></div>
               </div>
+              <div className="flex gap-2 pt-2">
+                <a href={`${BASE_URL}/api/ventas/${detalle.IdVenta}/boleta`} target="_blank" rel="noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
+                  <FileText size={15} /> Ver PDF
+                </a>
+                <button onClick={() => enviarWhatsapp(detalle.Telefono, detalle.NumeroBoleta, detalle.IdVenta)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600 font-medium">
+                  <MessageCircle size={15} /> WhatsApp
+                </button>
+              </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setDetalle(null)}
                   className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cerrar</button>
@@ -367,68 +445,164 @@ export default function VentasPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
-              <h2 className="text-base font-bold text-gray-800">Nueva Venta</h2>
-              <button type = "button" onClick={() => setModalNueva(false)} aria-label="Cerrar modal" className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              <h2 className="text-base font-bold text-gray-800">
+                {ventaCreada ? 'Venta registrada' : 'Nueva Venta'}
+              </h2>
+              <button type="button" onClick={() => setModalNueva(false)} aria-label="Cerrar modal" className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
 
+            {/* ── Pantalla de éxito post-venta ── */}
+            {ventaCreada ? (
+              <div className="p-8 flex flex-col items-center text-center gap-4">
+                <div className="p-4 rounded-full bg-green-50">
+                  <CheckCircle2 size={40} className="text-green-500" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-gray-800">¡Venta registrada!</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Comprobante <span className="font-mono font-medium text-purple-600">{ventaCreada.NumeroBoleta}</span>
+                    {ventaCreada.Cliente ? ` — ${ventaCreada.Cliente}` : ''}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm mt-2">
+                  <a href={urlBoleta(ventaCreada.IdVenta)} target="_blank" rel="noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">
+                    <FileText size={16} /> Ver / descargar {tipoComprobante === 'FACTURA' ? 'factura' : 'boleta'}
+                  </a>
+                  <button
+                    onClick={() => enviarWhatsapp(ventaCreada.Telefono, ventaCreada.NumeroBoleta, ventaCreada.IdVenta)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600 font-medium">
+                    <MessageCircle size={16} /> Enviar por WhatsApp
+                  </button>
+                </div>
+
+                <button onClick={() => setModalNueva(false)}
+                  className="mt-4 px-4 py-2 text-sm text-gray-400 hover:text-gray-600">
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+            <>
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
 
-              {/* ── Selector de cliente ── */}
+              {/* ── Tipo de cliente (tabs) ── */}
               <div>
-                <label htmlFor="Cliente" className="text-xs text-gray-500 mb-1 block">Cliente *</label>
-
-                {clienteSeleccionado ? (
-                  <div className="flex items-center justify-between bg-purple-50 rounded-xl px-4 py-2.5">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">
-                        {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}
-                      </p>
-                      <p className="text-xs text-gray-400">DNI: {clienteSeleccionado.DNI}</p>
-                    </div>
-                    <button type = "button" onClick={() => setClienteSeleccionado(null)} aria-label="Quitar cliente seleccionado" title="Quitar cliente"
-                      className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Buscar cliente por nombre o DNI..."
-                          value={busqCliente}
-                          onChange={e => { setBusqCliente(e.target.value); setMostrarClientes(true); }}
-                          onFocus={() => setMostrarClientes(true)}
-                          className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300"
-                        />
-                      </div>
-                    </div>
-
-                    {mostrarClientes && (
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
-                        {!busqCliente.trim() && (
-                          <p className="text-xs text-gray-400 px-4 pt-2 pb-1">⭐ Clientes frecuentes</p>
-                        )}
-                        {clientesFiltrados.length === 0 ? (
-                          <p className="text-sm text-gray-400 px-4 py-3">No se encontraron clientes</p>
-                        ) : clientesFiltrados.map(c => (
-                          <button key={c.IdCliente}
-                            onClick={() => seleccionarCliente(c)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-purple-50 text-left transition-colors">
-                            <div>
-                              <p className="text-sm font-medium text-gray-800">{c.Nombres} {c.Apellidos}</p>
-                              <p className="text-xs text-gray-400">DNI: {c.DNI}</p>
-                            </div>
-                            {c.TotalCompras ? (
-                              <span className="text-xs text-purple-500 font-medium">{c.TotalCompras} compras</span>
-                            ) : null}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <label className="text-xs text-gray-500 mb-1 block">Tipo de venta *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['registrado', 'simple', 'nuevo'] as TipoCliente[]).map(tipo => (
+                    <button key={tipo} type="button"
+                      onClick={() => setTipoCliente(tipo)}
+                      className={`px-3 py-2 text-xs font-medium rounded-xl border transition-colors ${
+                        tipoCliente === tipo
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      }`}>
+                      {tipo === 'registrado' ? 'Cliente registrado' : tipo === 'simple' ? 'Venta simple' : 'Cliente nuevo'}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* ── Cliente registrado: buscador ── */}
+              {tipoCliente === 'registrado' && (
+                <div>
+                  <label htmlFor="Cliente" className="text-xs text-gray-500 mb-1 block">Cliente *</label>
+
+                  {clienteSeleccionado ? (
+                    <div className="flex items-center justify-between bg-purple-50 rounded-xl px-4 py-2.5">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}
+                        </p>
+                        <p className="text-xs text-gray-400">DNI: {clienteSeleccionado.DNI}</p>
+                      </div>
+                      <button type="button" onClick={() => setClienteSeleccionado(null)} aria-label="Quitar cliente seleccionado" title="Quitar cliente"
+                        className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Buscar cliente por nombre o DNI..."
+                            value={busqCliente}
+                            onChange={e => { setBusqCliente(e.target.value); setMostrarClientes(true); }}
+                            onFocus={() => setMostrarClientes(true)}
+                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300"
+                          />
+                        </div>
+                      </div>
+
+                      {mostrarClientes && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                          {!busqCliente.trim() && (
+                            <p className="text-xs text-gray-400 px-4 pt-2 pb-1">⭐ Clientes frecuentes</p>
+                          )}
+                          {clientesFiltrados.length === 0 ? (
+                            <p className="text-sm text-gray-400 px-4 py-3">No se encontraron clientes</p>
+                          ) : clientesFiltrados.map(c => (
+                            <button key={c.IdCliente}
+                              onClick={() => seleccionarCliente(c)}
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-purple-50 text-left transition-colors">
+                              <div>
+                                <p className="text-sm font-medium text-gray-800">{c.Nombres} {c.Apellidos}</p>
+                                <p className="text-xs text-gray-400">DNI: {c.DNI}</p>
+                              </div>
+                              {c.TotalCompras ? (
+                                <span className="text-xs text-purple-500 font-medium">{c.TotalCompras} compras</span>
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Venta simple: mensaje informativo ── */}
+              {tipoCliente === 'simple' && (
+                <div className="bg-blue-50 text-blue-600 text-xs rounded-xl px-4 py-3">
+                  Venta rápida sin registrar datos del cliente. Se asignará automáticamente a &quot;Cliente General&quot;.
+                </div>
+              )}
+
+              {/* ── Cliente nuevo: formulario ── */}
+              {tipoCliente === 'nuevo' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label htmlFor="dniNuevo" className="text-xs text-gray-500 mb-1 block">DNI</label>
+                    <input id="dniNuevo" type="text" maxLength={8} value={clienteNuevo.DNI}
+                      onChange={e => setClienteNuevo(prev => ({ ...prev, DNI: e.target.value.replace(/\D/g, '') }))}
+                      placeholder="12345678"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label htmlFor="telNuevo" className="text-xs text-gray-500 mb-1 block">Teléfono</label>
+                    <input id="telNuevo" type="text" value={clienteNuevo.Telefono}
+                      onChange={e => setClienteNuevo(prev => ({ ...prev, Telefono: e.target.value }))}
+                      placeholder="999999999"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label htmlFor="nombresNuevo" className="text-xs text-gray-500 mb-1 block">Nombres *</label>
+                    <input id="nombresNuevo" type="text" value={clienteNuevo.Nombres}
+                      onChange={e => setClienteNuevo(prev => ({ ...prev, Nombres: e.target.value }))}
+                      placeholder="Ana María"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label htmlFor="apellidosNuevo" className="text-xs text-gray-500 mb-1 block">Apellidos</label>
+                    <input id="apellidosNuevo" type="text" value={clienteNuevo.Apellidos}
+                      onChange={e => setClienteNuevo(prev => ({ ...prev, Apellidos: e.target.value }))}
+                      placeholder="García López"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                  </div>
+                </div>
+              )}
 
               {/* Forma de pago */}
               <div>
@@ -440,6 +614,29 @@ export default function VentasPage() {
                     <option key={f.IdFormaPago} value={f.IdFormaPago}>{f.NombreFormaPago}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Tipo de comprobante */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Comprobante *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['BOLETA', 'FACTURA'] as TipoComprobante[]).map(tipo => (
+                    <button key={tipo} type="button"
+                      onClick={() => setTipoComprobante(tipo)}
+                      className={`px-3 py-2 text-xs font-medium rounded-xl border transition-colors ${
+                        tipoComprobante === tipo
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      }`}>
+                      {tipo === 'BOLETA' ? 'Boleta' : 'Factura'}
+                    </button>
+                  ))}
+                </div>
+                {tipoComprobante === 'FACTURA' && (
+                  <input type="text" value={rucFactura} onChange={e => setRucFactura(e.target.value.replace(/\D/g, ''))}
+                    placeholder="RUC del cliente (11 dígitos)" maxLength={11}
+                    className="w-full mt-2 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                )}
               </div>
 
               {/* Buscador productos */}
@@ -497,7 +694,7 @@ export default function VentasPage() {
                         <span className="text-sm font-bold text-gray-800 w-20 text-right">
                           {fmt(l.PrecioUnitario * l.Cantidad)}
                         </span>
-                        <button type = "button" onClick={() => quitarLinea(i)} aria-label="Quitar producto" className="text-red-400 hover:text-red-600">
+                        <button type="button" onClick={() => quitarLinea(i)} aria-label="Quitar producto" className="text-red-400 hover:text-red-600">
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -515,7 +712,7 @@ export default function VentasPage() {
                 <div className="flex justify-between items-center gap-4">
                   <label htmlFor="pctDescuento" className="text-gray-500 shrink-0">Descuento (%)</label>
                   <div className="flex items-center gap-2">
-                    <input id = "pctDescuento" type="number" min="0" max="100" value={pctDescuento}
+                    <input id="pctDescuento" type="number" min="0" max="100" value={pctDescuento}
                       onChange={e => setPctDescuento(e.target.value)}
                       className="w-20 px-2 py-1 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300" />
                     <span className="text-gray-400 text-xs">= {fmt(montoDesc)}</span>
@@ -538,6 +735,8 @@ export default function VentasPage() {
                 {guardando ? 'Registrando...' : 'Registrar venta'}
               </button>
             </div>
+            </>
+            )}
           </div>
         </div>
       )}

@@ -26,4 +26,6 @@ cd D:\SISTEMA-AYSEL\frontend
 npm install xlsx file-saver
 npm install -D @types/file-saver
 
-
+cd D:\SISTEMA-AYSEL\backend
+npm install pdfkit
+npm install -D @types/pdfkit
