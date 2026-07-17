@@ -278,7 +278,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-lg font-bold tracking-[0.22em] uppercase"
               style={{ color: '#c9a84c', textShadow: '0 0 18px rgba(201,168,76,0.55)' }}>
-              Sistema de Ventas
+              Sistema de Inventariado 
             </h1>
             <div className="flex items-center gap-3 mt-2">
               <div className="h-px w-10" style={{ background: 'linear-gradient(to right, transparent, #c9a84c)' }} />

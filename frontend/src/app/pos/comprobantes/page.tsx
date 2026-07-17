@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
-import { FileText, Eye, X } from 'lucide-react';
+import { Eye, X, Printer } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 interface Venta {
   IdVenta: number; NumeroBoleta: string; FechaVenta: string;
@@ -22,11 +23,211 @@ const fmt = (v: string | number) =>
 const fechaLocal = (iso: string) =>
   new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
 
+// ─── Convertir número a letras (para "SON X Y 00/100 SOLES") ─────────────────
+const unidades = ['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE'];
+const decenas  = ['','DIEZ','VEINTE','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+const especiales: Record<number,string> = {11:'ONCE',12:'DOCE',13:'TRECE',14:'CATORCE',15:'QUINCE',16:'DIECISÉIS',17:'DIECISIETE',18:'DIECIOCHO',19:'DIECINUEVE'};
+
+function centenas(n: number): string {
+  if (n === 100) return 'CIEN';
+  const c = Math.floor(n / 100);
+  const resto = n % 100;
+  const prefijos = ['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  return (c > 0 ? prefijos[c] + (resto > 0 ? ' ' : '') : '') + decenasLetras(resto);
+}
+function decenasLetras(n: number): string {
+  if (n === 0) return '';
+  if (n < 10) return unidades[n];
+  if (especiales[n]) return especiales[n];
+  const d = Math.floor(n / 10), u = n % 10;
+  return decenas[d] + (u > 0 ? ' Y ' + unidades[u] : '');
+}
+function numeroALetras(total: number): string {
+  const entero = Math.floor(total);
+  const cents  = Math.round((total - entero) * 100);
+  let letras = '';
+  if (entero === 0) letras = 'CERO';
+  else if (entero < 1000) letras = centenas(entero);
+  else {
+    const miles = Math.floor(entero / 1000);
+    const resto = entero % 1000;
+    letras = (miles === 1 ? 'MIL' : centenas(miles) + ' MIL') + (resto > 0 ? ' ' + centenas(resto) : '');
+  }
+  return `SON ${letras} Y ${String(cents).padStart(2,'0')}/100 SOLES`;
+}
+
+// ─── Generar PDF ──────────────────────────────────────────────────────────────
+function generarBoletaPDF(detalle: VentaDetalle) {
+  const anchoTicket = 80;
+  const altoTicket  = 160 + (detalle.detalle.length * 14);
+  const doc  = new jsPDF({ unit: 'mm', format: [anchoTicket, altoTicket] });
+  const W    = anchoTicket;
+  const marL = 5;
+  const marR = W - 5;
+  let   y    = 8;
+
+  const lineaH = () => {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.line(marL, y, marR, y);
+    y += 5;
+  };
+
+  // ── 1. ENCABEZADO ─────────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(80, 0, 120);
+  doc.text('TIENDA AYSEL', W / 2, y, { align: 'center' }); y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 0, 120);
+  doc.text('RUC 12345678901', W / 2, y, { align: 'center' }); y += 4;
+  doc.text('Jr. Ejemplo 123 - Cusco', W / 2, y, { align: 'center' }); y += 6;
+
+  lineaH();
+
+  // ── 2. TÍTULO ─────────────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('BOLETA ELECTRÓNICA', W / 2, y, { align: 'center' }); y += 6;
+
+  doc.setFontSize(10);
+  doc.text(detalle.NumeroBoleta, W / 2, y, { align: 'center' }); y += 8;
+
+  lineaH();
+
+  // ── 3. DATOS CLIENTE ──────────────────────────────────────────────────────
+  const fechaEmision = new Date(detalle.FechaVenta).toLocaleDateString('es-PE');
+  const colVal = marL + 24;
+
+  const fila = (label: string, valor: string) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(label, marL, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(valor, colVal, y);
+    y += 5;
+  };
+
+  fila('DOCUMENTO :', `DNI ${detalle.DNI}`);
+  fila('CLIENTE   :', detalle.Cliente);
+  fila('F. EMISIÓN:', fechaEmision);
+  fila('MONEDA    :', 'SOLES');
+
+  y += 1;
+  lineaH();
+
+  // ── 4. CABECERA TABLA ─────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('DESCRIPCIÓN', marL, y);
+  doc.text('P/U',         52,   y);
+  doc.text('TOTAL',       marR, y, { align: 'right' });
+  y += 4;
+  lineaH();
+
+  // ── 5. PRODUCTOS ──────────────────────────────────────────────────────────
+  detalle.detalle.forEach(d => {
+    const talla = d.NombreTalla || 'S/C';
+    const color = d.NombreColor || 'S/C';
+    const desc  = `${d.NombreProducto} (T: ${talla}, C: ${color}) x${d.Cantidad}`;
+    const pu    = `S/ ${Number(d.PrecioUnitario).toFixed(2)}`;
+    const sub   = `S/ ${Number(d.SubTotal).toFixed(2)}`;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(0, 0, 0);
+
+    const lineas = doc.splitTextToSize(desc, 44);
+    doc.text(lineas, marL, y);
+    doc.text(pu,  52,   y);
+    doc.text(sub, marR, y, { align: 'right' });
+    y += (lineas.length * 4.5) + 3;
+  });
+
+  y += 1;
+  lineaH();
+
+  // ── 6. TOTALES ────────────────────────────────────────────────────────────
+  const colLabel = 44;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('SUBTOTAL', colLabel, y);
+  doc.text(`S/ ${Number(detalle.SubTotal).toFixed(2)}`, marR, y, { align: 'right' });
+  y += 6;
+
+  if (Number(detalle.Descuento) > 0) {
+    doc.text('DESCUENTO', colLabel, y);
+    doc.text(`- S/ ${Number(detalle.Descuento).toFixed(2)}`, marR, y, { align: 'right' });
+    y += 6;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('TOTAL', colLabel, y);
+  doc.text(`S/ ${Number(detalle.Total).toFixed(2)}`, marR, y, { align: 'right' });
+  y += 8;
+
+  // ── 7. MONTO EN LETRAS ────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 0, 120);
+  const letras = doc.splitTextToSize(
+    numeroALetras(Number(detalle.Total)), marR - marL
+  );
+  doc.text(letras, marL, y);
+  y += (letras.length * 4.5) + 5;
+  lineaH();
+
+  // ── 8. CONDICIÓN DE PAGO ──────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('CONDICIÓN DE PAGO', marL, y); y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 0, 120);
+  doc.text(detalle.NombreFormaPago, marL, y); y += 8;
+
+  // ── 9. CUENTAS BANCARIAS ──────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('CUENTAS BANCARIAS', marL, y); y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 0, 120);
+  doc.text('Yape: 999999999',     marL, y); y += 4.5;
+  doc.text('WhatsApp: 999999999', marL, y); y += 9;
+  lineaH();
+
+  // ── 10. PIE ───────────────────────────────────────────────────────────────
+  const fechaHora = new Date(detalle.FechaVenta).toLocaleString('es-PE');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(120, 120, 120);
+  doc.text(detalle.Vendedor, marL, y); y += 4.5;
+  doc.text(fechaHora, marL, y);
+
+  window.open(URL.createObjectURL(doc.output('blob')), '_blank');
+}
+
+
+
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 export default function ComprobantesPage() {
-  const [ventas, setVentas]   = useState<Venta[]>([]);
+  const [ventas, setVentas]     = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [detalle, setDetalle] = useState<VentaDetalle | null>(null);
-  const [busq, setBusq]       = useState('');
+  const [detalle, setDetalle]   = useState<VentaDetalle | null>(null);
+  const [busq, setBusq]         = useState('');
 
   useEffect(() => {
     apiFetch<{ ok: boolean; data: Venta[] }>('/ventas')
@@ -55,7 +256,8 @@ export default function ComprobantesPage() {
       <div className="relative w-full sm:w-80">
         <input type="text" placeholder="Buscar por boleta, cliente o DNI..."
           value={busq} onChange={e => setBusq(e.target.value)}
-          className="w-full pl-4 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+          className="w-full pl-4 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl
+                     focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
       </div>
 
       {cargando ? (
@@ -87,7 +289,9 @@ export default function ComprobantesPage() {
                   <td className="px-5 py-3 font-bold text-gray-800">{fmt(v.Total)}</td>
                   <td className="px-5 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      v.Estado === 'Completado' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
+                      v.Estado === 'Completado'
+                        ? 'bg-green-100 text-green-600'
+                        : 'bg-red-100 text-red-500'
                     }`}>{v.Estado}</span>
                   </td>
                   <td className="px-5 py-3">
@@ -103,19 +307,23 @@ export default function ComprobantesPage() {
         </div>
       )}
 
-      {/* Modal detalle */}
+      {/* ── Modal detalle ── */}
       {detalle && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+
+            {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
                 <h2 className="text-base font-bold text-gray-800">{detalle.NumeroBoleta}</h2>
                 <p className="text-xs text-gray-400">{fechaLocal(detalle.FechaVenta)}</p>
               </div>
-              <button  onClick={() => setDetalle(null)} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar detalle">
+              <button onClick={() => setDetalle(null)} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
                 <X size={18} />
               </button>
             </div>
+
+            {/* Cuerpo */}
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><p className="text-xs text-gray-400">Cliente</p><p className="font-medium">{detalle.Cliente}</p></div>
@@ -123,26 +331,46 @@ export default function ComprobantesPage() {
                 <div><p className="text-xs text-gray-400">Forma de pago</p><p className="font-medium">{detalle.NombreFormaPago}</p></div>
                 <div><p className="text-xs text-gray-400">Vendedor</p><p className="font-medium">{detalle.Vendedor}</p></div>
               </div>
+
               <div className="space-y-2">
                 {detalle.detalle.map(d => (
-                  <div key={d.IdDetalleVenta} className="flex justify-between text-sm bg-gray-50 rounded-xl px-4 py-2">
+                  <div key={d.IdDetalleVenta}
+                    className="flex justify-between text-sm bg-gray-50 rounded-xl px-4 py-2">
                     <div>
                       <p className="font-medium text-gray-800">{d.NombreProducto}</p>
-                      <p className="text-xs text-gray-400">{d.NombreTalla} · {d.NombreColor} · x{d.Cantidad}</p>
+                      <p className="text-xs text-gray-400">
+                        {d.NombreTalla} · {d.NombreColor} · x{d.Cantidad}
+                      </p>
                     </div>
                     <p className="font-bold text-gray-800">{fmt(d.SubTotal)}</p>
                   </div>
                 ))}
               </div>
+
               <div className="border-t border-gray-100 pt-3 space-y-1 text-sm">
-                <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{fmt(detalle.SubTotal)}</span></div>
-                <div className="flex justify-between text-gray-500"><span>Descuento</span><span>- {fmt(detalle.Descuento)}</span></div>
-                <div className="flex justify-between font-bold text-gray-800 text-base"><span>Total</span><span>{fmt(detalle.Total)}</span></div>
+                <div className="flex justify-between text-gray-500">
+                  <span>Subtotal</span><span>{fmt(detalle.SubTotal)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>Descuento</span><span>- {fmt(detalle.Descuento)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-gray-800 text-base">
+                  <span>Total</span><span>{fmt(detalle.Total)}</span>
+                </div>
               </div>
-              <button onClick={() => setDetalle(null)} aria-label="Cerrar detalle"
-                className="w-full px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
-                Cerrar
-              </button>
+
+              {/* Botones */}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setDetalle(null)}
+                  className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
+                  Cerrar
+                </button>
+                <button onClick={() => generarBoletaPDF(detalle)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm
+                             bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-medium">
+                  <Printer size={15} /> Imprimir boleta
+                </button>
+              </div>
             </div>
           </div>
         </div>

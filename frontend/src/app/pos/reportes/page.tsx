@@ -5,25 +5,26 @@ import { apiFetch } from '@/lib/api-client';
 import { BarChart2, TrendingUp, Calendar, Users, Download, Package, CreditCard, XCircle } from 'lucide-react';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-interface ResumenDia   { TotalBoletas: number; TotalIngresos: number; TotalDescuentos: number; PromedioVenta: number; }
-interface VentaDia     { NumeroBoleta: string; Hora: string; Cliente: string; DNI: string; NombreFormaPago: string; Total: number; Vendedor: string; }
-interface ResumenTurno { VentasMañana: number; IngresosMañana: number; VentasTarde: number; IngresosTarde: number; }
-interface FilaTurno    { Fecha: string; Turno: string; Vendedor: string; TotalVentas: number; TotalIngresos: number; }
-interface FilaVendedor { Vendedor: string; Rol: string; TotalVentas: number; TotalIngresos: number; PromedioVenta: number; UltimaVenta: string; }
-interface FilaCliente  { Cliente: string; DNI: string; TotalCompras: number; TotalGastado: number; UltimaCompra: string; }
-interface FilaFormaPago{ NombreFormaPago: string; TotalVentas: number; TotalIngresos: number; Porcentaje: number; }
+interface ResumenDia    { TotalBoletas: number; TotalIngresos: number; TotalDescuentos: number; PromedioVenta: number; }
+interface VentaDia      { NumeroBoleta: string; Hora: string; Cliente: string; DNI: string; NombreFormaPago: string; Total: number; Vendedor: string; }
+interface ResumenTurno  { VentasMañana: number; IngresosMañana: number; VentasTarde: number; IngresosTarde: number; }
+interface FilaTurno     { Fecha: string; Turno: string; Vendedor: string; TotalVentas: number; TotalIngresos: number; }
+interface FilaVendedor  { Vendedor: string; Rol: string; TotalVentas: number; TotalIngresos: number; PromedioVenta: number; UltimaVenta: string; }
+interface FilaCliente   { Cliente: string; DNI: string; TotalCompras: number; TotalGastado: number; UltimaCompra: string; }
+interface FilaFormaPago { NombreFormaPago: string; TotalVentas: number; TotalIngresos: number; Porcentaje: number; }
 interface FilaInventario{ Codigo: string; NombreProducto: string; NombreCategoria: string; StockActual: number; StockMinimo: number; EstadoStock: string; PrecioVenta: number; }
 
 type Tab = 'dia' | 'turnos' | 'vendedor' | 'clientes' | 'formaspago' | 'inventario';
 
-const fmt  = (v: number) => `S/ ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-const hoy  = () => new Date().toISOString().split('T')[0];
-const hace7= () => { const d = new Date(); d.setDate(d.getDate()-7); return d.toISOString().split('T')[0]; };
+const fmt = (v: number) => `S/ ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+//  FIX: todas las fechas calculadas en hora Lima (UTC-5)
+const limaHoy  = () => new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().split('T')[0];
+const limaHace7= () => new Date(Date.now() - 5 * 60 * 60 * 1000 - 7 * 86400000).toISOString().split('T')[0];
 
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: 'dia',        label: 'Ventas del Día',  icon: Calendar   },
   { key: 'turnos',     label: 'Por Turno',        icon: BarChart2  },
-  
   { key: 'clientes',   label: 'Clientes',         icon: Users      },
   { key: 'formaspago', label: 'Formas de Pago',   icon: CreditCard },
   { key: 'inventario', label: 'Inventario',       icon: Package    },
@@ -57,15 +58,19 @@ function BadgeStock({ estado }: { estado: string }) {
     'Stock bajo': 'bg-yellow-100 text-yellow-700',
     'Sin stock':  'bg-red-100 text-red-600',
   };
-  return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[estado] ?? 'bg-gray-100 text-gray-500'}`}>{estado}</span>;
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[estado] ?? 'bg-gray-100 text-gray-500'}`}>
+      {estado}
+    </span>
+  );
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function ReportesPage() {
   const [tab, setTab]     = useState<Tab>('dia');
-  const [desde, setDesde] = useState(hace7());
-  const [hasta, setHasta] = useState(hoy());
-  const [fecha, setFecha] = useState(hoy());
+  const [desde, setDesde] = useState(limaHace7());  //  Lima
+  const [hasta, setHasta] = useState(limaHoy());    //  Lima
+  const [fecha, setFecha] = useState(limaHoy());    //  Lima
   const [datos, setDatos] = useState<any>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -73,31 +78,39 @@ export default function ReportesPage() {
     setCargando(true);
     setDatos(null);
     try {
-      const params = t === 'inventario' ? '' : t === 'dia' ? `?desde=${fecha}&hasta=${fecha}` : `?desde=${desde}&hasta=${hasta}`;
+      const params = t === 'inventario'
+        ? ''
+        : t === 'dia'
+          ? `?desde=${fecha}&hasta=${fecha}`
+          : `?desde=${desde}&hasta=${hasta}`;
       const r = await apiFetch<{ ok: boolean; data: any }>(`/reportes/${t}${params}`);
       setDatos(r.data ?? r);
     } catch { setDatos(null); }
-    finally { setCargando(false); }
+    finally  { setCargando(false); }
   };
 
   const exportar = () => {
-    const params = tab === 'inventario' ? '' : tab === 'dia' ? `?desde=${fecha}&hasta=${fecha}` : `?desde=${desde}&hasta=${hasta}`;
+    const params = tab === 'inventario'
+      ? ''
+      : tab === 'dia'
+        ? `?desde=${fecha}&hasta=${fecha}`
+        : `?desde=${desde}&hasta=${hasta}`;
     window.open(`http://localhost:3001/api/reportes/${tab}/excel${params}`, '_blank');
   };
 
   useEffect(() => { cargar(tab); }, [tab]);
 
-  // ─── Vistas por tab ──────────────────────────────────────────────────────────
+  // ─── Vistas por tab ───────────────────────────────────────────────────────
   const renderDia = () => {
     const d = datos as { resumen: ResumenDia; ventas: VentaDia[] };
     if (!d) return null;
     return (
       <div className="space-y-5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <KpiCard label="Boletas"    value={d.resumen?.TotalBoletas}                                    icon={BarChart2}  color="purple" />
-          <KpiCard label="Ingresos"   value={fmt(d.resumen?.TotalIngresos   ?? 0)}                       icon={TrendingUp} color="green"  />
-          <KpiCard label="Descuentos" value={fmt(d.resumen?.TotalDescuentos ?? 0)}                       icon={XCircle}    color="orange" />
-          <KpiCard label="Promedio"   value={fmt(d.resumen?.PromedioVenta   ?? 0)}                       icon={Calendar}   color="blue"   />
+          <KpiCard label="Boletas"    value={d.resumen?.TotalBoletas}                      icon={BarChart2}  color="purple" />
+          <KpiCard label="Ingresos"   value={fmt(d.resumen?.TotalIngresos   ?? 0)}         icon={TrendingUp} color="green"  />
+          <KpiCard label="Descuentos" value={fmt(d.resumen?.TotalDescuentos ?? 0)}         icon={XCircle}    color="orange" />
+          <KpiCard label="Promedio"   value={fmt(d.resumen?.PromedioVenta   ?? 0)}         icon={Calendar}   color="blue"   />
         </div>
         {d.ventas?.length > 0 ? (
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
@@ -106,14 +119,16 @@ export default function ReportesPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
-                  <th className="px-4 py-2 text-left">Boleta</th>
-                  <th className="px-4 py-2 text-left">Hora</th>
-                  <th className="px-4 py-2 text-left">Cliente</th>
-                  <th className="px-4 py-2 text-left">Vendedor</th>
-                  <th className="px-4 py-2 text-left">Pago</th>
-                  <th className="px-4 py-2 text-right">Total</th>
-                </tr></thead>
+                <thead>
+                  <tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-2 text-left">Boleta</th>
+                    <th className="px-4 py-2 text-left">Hora</th>
+                    <th className="px-4 py-2 text-left">Cliente</th>
+                    <th className="px-4 py-2 text-left">Vendedor</th>
+                    <th className="px-4 py-2 text-left">Pago</th>
+                    <th className="px-4 py-2 text-right">Total</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-gray-50">
                   {d.ventas.map((v, i) => (
                     <tr key={i} className="hover:bg-gray-50">
@@ -129,7 +144,11 @@ export default function ReportesPage() {
               </table>
             </div>
           </div>
-        ) : <p className="text-center text-gray-400 py-10 bg-white rounded-2xl shadow-sm">Sin ventas para esta fecha.</p>}
+        ) : (
+          <p className="text-center text-gray-400 py-10 bg-white rounded-2xl shadow-sm">
+            Sin ventas para esta fecha.
+          </p>
+        )}
       </div>
     );
   };
@@ -140,10 +159,10 @@ export default function ReportesPage() {
     return (
       <div className="space-y-5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <KpiCard label="Ventas Mañana"   value={d.resumen?.VentasMañana}                    icon={BarChart2}  color="yellow" />
-          <KpiCard label="Ingresos Mañana" value={fmt(d.resumen?.IngresosMañana ?? 0)}         icon={TrendingUp} color="yellow" />
-          <KpiCard label="Ventas Tarde"    value={d.resumen?.VentasTarde}                      icon={BarChart2}  color="purple" />
-          <KpiCard label="Ingresos Tarde"  value={fmt(d.resumen?.IngresosTarde  ?? 0)}         icon={TrendingUp} color="purple" />
+          <KpiCard label="Ventas Mañana"   value={d.resumen?.VentasMañana}              icon={BarChart2}  color="yellow" />
+          <KpiCard label="Ingresos Mañana" value={fmt(d.resumen?.IngresosMañana ?? 0)} icon={TrendingUp} color="yellow" />
+          <KpiCard label="Ventas Tarde"    value={d.resumen?.VentasTarde}               icon={BarChart2}  color="purple" />
+          <KpiCard label="Ingresos Tarde"  value={fmt(d.resumen?.IngresosTarde  ?? 0)} icon={TrendingUp} color="purple" />
         </div>
         {d.detalle?.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
@@ -152,20 +171,26 @@ export default function ReportesPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
-                  <th className="px-4 py-2 text-left">Fecha</th>
-                  <th className="px-4 py-2 text-left">Turno</th>
-                  <th className="px-4 py-2 text-left">Vendedor</th>
-                  <th className="px-4 py-2 text-right">Ventas</th>
-                  <th className="px-4 py-2 text-right">Ingresos</th>
-                </tr></thead>
+                <thead>
+                  <tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-2 text-left">Fecha</th>
+                    <th className="px-4 py-2 text-left">Turno</th>
+                    <th className="px-4 py-2 text-left">Vendedor</th>
+                    <th className="px-4 py-2 text-right">Ventas</th>
+                    <th className="px-4 py-2 text-right">Ingresos</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-gray-50">
                   {d.detalle.map((f, i) => (
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-700">{f.Fecha}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.Turno === 'Mañana' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}`}>
-                          {f.Turno === 'Mañana' ? '' : ''} {f.Turno}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          f.Turno === 'Mañana'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {f.Turno}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-700">{f.Vendedor}</td>
@@ -189,14 +214,16 @@ export default function ReportesPage() {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
-              <th className="px-4 py-2 text-left">Vendedor</th>
-              <th className="px-4 py-2 text-left">Rol</th>
-              <th className="px-4 py-2 text-right">Ventas</th>
-              <th className="px-4 py-2 text-right">Ingresos</th>
-              <th className="px-4 py-2 text-right">Promedio</th>
-              <th className="px-4 py-2 text-left">Última venta</th>
-            </tr></thead>
+            <thead>
+              <tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
+                <th className="px-4 py-2 text-left">Vendedor</th>
+                <th className="px-4 py-2 text-left">Rol</th>
+                <th className="px-4 py-2 text-right">Ventas</th>
+                <th className="px-4 py-2 text-right">Ingresos</th>
+                <th className="px-4 py-2 text-right">Promedio</th>
+                <th className="px-4 py-2 text-left">Última venta</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.map((v, i) => (
                 <tr key={i} className="hover:bg-gray-50">
@@ -222,13 +249,15 @@ export default function ReportesPage() {
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
-              <th className="px-4 py-2 text-left">Cliente</th>
-              <th className="px-4 py-2 text-left">DNI</th>
-              <th className="px-4 py-2 text-right">Compras</th>
-              <th className="px-4 py-2 text-right">Total gastado</th>
-              <th className="px-4 py-2 text-left">Última compra</th>
-            </tr></thead>
+            <thead>
+              <tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
+                <th className="px-4 py-2 text-left">Cliente</th>
+                <th className="px-4 py-2 text-left">DNI</th>
+                <th className="px-4 py-2 text-right">Compras</th>
+                <th className="px-4 py-2 text-right">Total gastado</th>
+                <th className="px-4 py-2 text-left">Última compra</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.map((c, i) => (
                 <tr key={i} className="hover:bg-gray-50">
@@ -258,7 +287,10 @@ export default function ReportesPage() {
               <p className="text-sm font-semibold text-gray-700">{f.NombreFormaPago}</p>
               <p className="text-2xl font-bold text-purple-600 mt-1">{fmt(Number(f.TotalIngresos))}</p>
               <div className="mt-3 bg-gray-100 rounded-full h-1.5">
-                <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: `${max > 0 ? (f.TotalIngresos/max)*100 : 0}%` }} />
+                <div
+                  className="bg-purple-500 h-1.5 rounded-full"
+                  style={{ width: `${max > 0 ? (f.TotalIngresos / max) * 100 : 0}%` }}
+                />
               </div>
               <p className="text-xs text-gray-400 mt-1">{f.TotalVentas} ventas · {f.Porcentaje}%</p>
             </div>
@@ -275,22 +307,24 @@ export default function ReportesPage() {
     return (
       <div className="space-y-5">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <KpiCard label="Total productos"  value={rows.length}  icon={Package}    color="purple" />
-          <KpiCard label="Con stock bajo"   value={bajos}        icon={XCircle}    color="red"    />
-          <KpiCard label="En stock normal"  value={rows.length - bajos} icon={BarChart2} color="green" />
+          <KpiCard label="Total productos" value={rows.length}          icon={Package}   color="purple" />
+          <KpiCard label="Con stock bajo"  value={bajos}                icon={XCircle}   color="red"    />
+          <KpiCard label="En stock normal" value={rows.length - bajos}  icon={BarChart2} color="green"  />
         </div>
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
-                <th className="px-4 py-2 text-left">Código</th>
-                <th className="px-4 py-2 text-left">Producto</th>
-                <th className="px-4 py-2 text-left">Categoría</th>
-                <th className="px-4 py-2 text-right">Stock</th>
-                <th className="px-4 py-2 text-right">Mínimo</th>
-                <th className="px-4 py-2 text-right">Precio</th>
-                <th className="px-4 py-2 text-center">Estado</th>
-              </tr></thead>
+              <thead>
+                <tr className="text-xs text-gray-400 border-b border-gray-100 bg-gray-50">
+                  <th className="px-4 py-2 text-left">Código</th>
+                  <th className="px-4 py-2 text-left">Producto</th>
+                  <th className="px-4 py-2 text-left">Categoría</th>
+                  <th className="px-4 py-2 text-right">Stock</th>
+                  <th className="px-4 py-2 text-right">Mínimo</th>
+                  <th className="px-4 py-2 text-right">Precio</th>
+                  <th className="px-4 py-2 text-center">Estado</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((p, i) => (
                   <tr key={i} className="hover:bg-gray-50">
@@ -330,7 +364,6 @@ export default function ReportesPage() {
 
   return (
     <div className="p-6 space-y-5">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Reportes</h1>
         <p className="text-sm text-gray-400 mt-0.5">Análisis de ventas, turnos, clientes e inventario</p>
@@ -372,7 +405,9 @@ export default function ReportesPage() {
                 className="px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
             </div>
           </>
-        ) : <span className="text-sm text-gray-400 italic">Stock actual — sin filtro de fechas</span>}
+        ) : (
+          <span className="text-sm text-gray-400 italic">Stock actual — sin filtro de fechas</span>
+        )}
 
         <button onClick={() => cargar(tab)} disabled={cargando}
           className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50">
@@ -384,7 +419,6 @@ export default function ReportesPage() {
         </button>
       </div>
 
-      {/* Contenido */}
       {renderContenido()}
     </div>
   );

@@ -25,12 +25,16 @@ export const updateCategoria = async (id: number, data: { NombreCategoria: strin
 };
 
 export const deleteCategoria = async (id: number) => {
+  const [uso]: any = await pool.query(
+    `SELECT COUNT(*) AS total FROM productos WHERE IdCategoria = ?`, [id]
+  );
+  if (uso[0].total > 0)
+    throw new Error(`No se puede eliminar: tiene ${uso[0].total} producto(s) asociado(s)`);
   const [result]: any = await pool.query(
     `DELETE FROM categorias WHERE IdCategoria=?`, [id]
   );
   return result.affectedRows > 0;
 };
-
 // ─── TALLAS ───────────────────────────────────────────────────────────────────
 export const getTallas = async () => {
   const [rows]: any = await pool.query(
@@ -54,6 +58,11 @@ export const updateTalla = async (id: number, nombre: string) => {
 };
 
 export const deleteTalla = async (id: number) => {
+  const [uso]: any = await pool.query(
+    `SELECT COUNT(*) AS total FROM inventario WHERE IdTalla = ?`, [id]
+  );
+  if (uso[0].total > 0)
+    throw new Error(`No se puede eliminar: tiene ${uso[0].total} producto(s) en inventario`);
   const [result]: any = await pool.query(
     `DELETE FROM tallas WHERE IdTalla=?`, [id]
   );
@@ -83,6 +92,11 @@ export const updateColor = async (id: number, nombre: string) => {
 };
 
 export const deleteColor = async (id: number) => {
+  const [uso]: any = await pool.query(
+    `SELECT COUNT(*) AS total FROM inventario WHERE IdColor = ?`, [id]
+  );
+  if (uso[0].total > 0)
+    throw new Error(`No se puede eliminar: tiene ${uso[0].total} producto(s) en inventario`);
   const [result]: any = await pool.query(
     `DELETE FROM colores WHERE IdColor=?`, [id]
   );
@@ -112,6 +126,11 @@ export const updateFormaPago = async (id: number, nombre: string) => {
 };
 
 export const deleteFormaPago = async (id: number) => {
+  const [uso]: any = await pool.query(
+    `SELECT COUNT(*) AS total FROM ventas WHERE IdFormaPago = ?`, [id]
+  );
+  if (uso[0].total > 0)
+    throw new Error(`No se puede eliminar: tiene ${uso[0].total} venta(s) asociada(s)`);
   const [result]: any = await pool.query(
     `DELETE FROM formaspago WHERE IdFormaPago=?`, [id]
   );
@@ -141,6 +160,11 @@ export const updateRol = async (id: number, nombre: string) => {
 };
 
 export const deleteRol = async (id: number) => {
+  const [uso]: any = await pool.query(
+    `SELECT COUNT(*) AS total FROM usuarios WHERE IdRol = ?`, [id]
+  );
+  if (uso[0].total > 0)
+    throw new Error(`No se puede eliminar: tiene ${uso[0].total} usuario(s) con este rol`);
   const [result]: any = await pool.query(
     `DELETE FROM roles WHERE IdRol=?`, [id]
   );
