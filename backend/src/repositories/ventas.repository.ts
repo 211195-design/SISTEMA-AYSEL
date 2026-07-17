@@ -1,10 +1,17 @@
 ﻿import pool from '../config/database';
 
+// ─── Helper zona horaria Lima ─────────────────────────────────────────────────
+const TZ_FECHA = (col: string) => `CONVERT_TZ(${col}, '+00:00', '-05:00')`;
+const DATE_LIMA = `DATE(${TZ_FECHA('FechaVenta')})`;
+const HOUR_LIMA = `HOUR(${TZ_FECHA('FechaVenta')})`;
+
+// ─── Ventas ───────────────────────────────────────────────────────────────────
 export const getAllVentas = async (desde?: string, hasta?: string) => {
   let where = '';
   const params: any[] = [];
   if (desde && hasta) {
-    where = 'WHERE DATE(v.FechaVenta) BETWEEN ? AND ?';
+    // FIX: filtro con zona horaria Lima
+    where = `WHERE DATE(${TZ_FECHA('v.FechaVenta')}) BETWEEN ? AND ?`;
     params.push(desde, hasta);
   }
   const [rows]: any = await pool.query(`
@@ -16,9 +23,9 @@ export const getAllVentas = async (desde?: string, hasta?: string) => {
       f.NombreFormaPago,
       CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor
     FROM ventas v
-    INNER JOIN clientes   c ON v.IdCliente   = c.IdCliente
-    INNER JOIN formaspago f ON v.IdFormaPago  = f.IdFormaPago
-    INNER JOIN usuarios   u ON v.IdUsuario    = u.IdUsuario
+    INNER JOIN clientes   c ON v.IdCliente  = c.IdCliente
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    INNER JOIN usuarios   u ON v.IdUsuario   = u.IdUsuario
     ${where}
     ORDER BY v.FechaVenta DESC
   `, params);
@@ -35,9 +42,9 @@ export const getVentaById = async (id: number) => {
       f.NombreFormaPago,
       CONCAT(u.Nombres, ' ', u.Apellidos) AS Vendedor
     FROM ventas v
-    INNER JOIN clientes   c ON v.IdCliente   = c.IdCliente
-    INNER JOIN formaspago f ON v.IdFormaPago  = f.IdFormaPago
-    INNER JOIN usuarios   u ON v.IdUsuario    = u.IdUsuario
+    INNER JOIN clientes   c ON v.IdCliente  = c.IdCliente
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    INNER JOIN usuarios   u ON v.IdUsuario   = u.IdUsuario
     WHERE v.IdVenta = ?
   `, [id]);
   return rows[0] ?? null;
@@ -66,7 +73,7 @@ export const getNextNumeroBoleta = async () => {
   );
   if (rows.length === 0) return 'B0000001';
   const last = rows[0].NumeroBoleta ?? 'B0000000';
-  const num = parseInt(last.replace(/\D/g, '')) + 1;
+  const num  = parseInt(last.replace(/\D/g, '')) + 1;
   return `B${String(num).padStart(7, '0')}`;
 };
 
@@ -75,7 +82,8 @@ export const createVenta = async (data: {
   IdFormaPago: number; SubTotal: number; Descuento: number; Total: number;
 }) => {
   const [result]: any = await pool.query(`
-    INSERT INTO ventas (NumeroBoleta, IdCliente, IdUsuario, IdFormaPago, FechaVenta, SubTotal, Descuento, Total, Estado)
+    INSERT INTO ventas
+      (NumeroBoleta, IdCliente, IdUsuario, IdFormaPago, FechaVenta, SubTotal, Descuento, Total, Estado)
     VALUES (?, ?, ?, ?, CONVERT_TZ(NOW(),'+00:00','-05:00'), ?, ?, ?, 'Completado')
   `, [data.NumeroBoleta, data.IdCliente, data.IdUsuario, data.IdFormaPago,
       data.SubTotal, data.Descuento, data.Total]);
@@ -88,7 +96,8 @@ export const createDetalleVenta = async (items: {
 }[]) => {
   for (const item of items) {
     await pool.query(`
-      INSERT INTO detalleventa (IdVenta, IdInventario, Cantidad, PrecioUnitario, Descuento, SubTotal)
+      INSERT INTO detalleventa
+        (IdVenta, IdInventario, Cantidad, PrecioUnitario, Descuento, SubTotal)
       VALUES (?, ?, ?, ?, ?, ?)
     `, [item.IdVenta, item.IdInventario, item.Cantidad,
         item.PrecioUnitario, item.Descuento, item.SubTotal]);
@@ -101,7 +110,6 @@ export const createDetalleVenta = async (items: {
 };
 
 export const anularVenta = async (id: number) => {
-  // Restaurar stock
   const [detalle]: any = await pool.query(
     `SELECT IdInventario, Cantidad FROM detalleventa WHERE IdVenta = ?`, [id]
   );
@@ -111,13 +119,13 @@ export const anularVenta = async (id: number) => {
       [item.Cantidad, item.IdInventario]
     );
   }
-  await pool.query(
-    `UPDATE ventas SET Estado = 'Anulado' WHERE IdVenta = ?`, [id]
-  );
+  await pool.query(`UPDATE ventas SET Estado = 'Anulado' WHERE IdVenta = ?`, [id]);
 };
 
 export const getFormaspago = async () => {
-  const [rows]: any = await pool.query(`SELECT * FROM formaspago ORDER BY NombreFormaPago`);
+  const [rows]: any = await pool.query(
+    `SELECT * FROM formaspago ORDER BY NombreFormaPago`
+  );
   return rows;
 };
 
@@ -129,65 +137,76 @@ export const getClientesActivos = async () => {
   return rows;
 };
 
+// ─── Reporte turno ────────────────────────────────────────────────────────────
 export const getReporteTurno = async (idUsuario: number, fecha: string) => {
+  const TZ_V = TZ_FECHA('v.FechaVenta');
+  const TZ   = TZ_FECHA('FechaVenta');
+
   const [rows]: any = await pool.query(`
     SELECT
-      COUNT(*)                                          AS TotalVentas,
-      COALESCE(SUM(v.Total), 0)                        AS MontoTotal,
-      COALESCE(SUM(v.Descuento), 0)                    AS TotalDescuentos,
-      COALESCE(SUM(CASE WHEN v.Estado='Anulado' THEN 1 ELSE 0 END), 0) AS Anuladas,
+      COUNT(*)                                                                   AS TotalVentas,
+      COALESCE(SUM(v.Total), 0)                                                  AS MontoTotal,
+      COALESCE(SUM(v.Descuento), 0)                                              AS TotalDescuentos,
+      COALESCE(SUM(CASE WHEN v.Estado='Anulado'    THEN 1    ELSE 0 END), 0)    AS Anuladas,
       f.NombreFormaPago,
       COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0) AS MontoFormaPago
     FROM ventas v
     INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
-    WHERE v.IdUsuario = ? AND DATE(v.FechaVenta) = ? AND v.Estado = 'Completado'
+    WHERE v.IdUsuario = ? AND DATE(${TZ_V}) = ? AND v.Estado = 'Completado'
     GROUP BY f.NombreFormaPago
   `, [idUsuario, fecha]);
 
   const [resumen]: any = await pool.query(`
     SELECT
-      COUNT(*)                                                           AS TotalVentas,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total ELSE 0 END), 0) AS MontoTotal,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Descuento ELSE 0 END), 0) AS TotalDescuentos,
-      COALESCE(SUM(CASE WHEN Estado='Anulado'    THEN 1 ELSE 0 END), 0) AS Anuladas
-    FROM ventas
-    WHERE IdUsuario = ? AND DATE(FechaVenta) = ?
-  `, [idUsuario, fecha]);
-
-  const [detalle]: any = await pool.query(`
-    SELECT
-      v.NumeroBoleta, v.FechaVenta, v.Total, v.Estado,
-      CONCAT(c.Nombres,' ',c.Apellidos) AS Cliente,
-      f.NombreFormaPago
-    FROM ventas v
-    INNER JOIN clientes   c ON v.IdCliente  = c.IdCliente
-    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
-    WHERE v.IdUsuario = ? AND DATE(v.FechaVenta) = ?
-    ORDER BY v.FechaVenta DESC
-  `, [idUsuario, fecha]);
-
-  return { resumen: resumen[0], porFormaPago: rows, detalle };
-};
-
-export const getReporteGeneral = async (desde: string, hasta: string) => {
-  const [resumen]: any = await pool.query(`
-    SELECT
-      COUNT(*)                                                               AS TotalVentas,
+      COUNT(*)                                                                   AS TotalVentas,
       COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total     ELSE 0 END), 0) AS MontoTotal,
       COALESCE(SUM(CASE WHEN Estado='Completado' THEN Descuento ELSE 0 END), 0) AS TotalDescuentos,
       COALESCE(SUM(CASE WHEN Estado='Anulado'    THEN 1         ELSE 0 END), 0) AS Anuladas
     FROM ventas
-    WHERE DATE(FechaVenta) BETWEEN ? AND ?
+    WHERE IdUsuario = ? AND DATE(${TZ}) = ?
+  `, [idUsuario, fecha]);
+
+  const [detalle]: any = await pool.query(`
+    SELECT
+      v.NumeroBoleta,
+      DATE_FORMAT(${TZ_V}, '%H:%i')              AS Hora,
+      v.Total, v.Estado,
+      CONCAT(c.Nombres,' ',c.Apellidos)           AS Cliente,
+      c.DNI,
+      CONCAT(u.Nombres,' ',u.Apellidos)           AS Vendedor,
+      f.NombreFormaPago
+    FROM ventas v
+    INNER JOIN clientes   c ON v.IdCliente  = c.IdCliente
+    INNER JOIN usuarios   u ON v.IdUsuario  = u.IdUsuario
+    INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
+    WHERE DATE(${TZ_V}) = ?
+    ORDER BY v.FechaVenta DESC
+  `, [fecha]);
+
+  return { resumen: resumen[0], porFormaPago: rows, detalle };
+};
+
+// ─── Reporte general ──────────────────────────────────────────────────────────
+export const getReporteGeneral = async (desde: string, hasta: string) => {
+  // ✅ FIX: las 4 sub-consultas ahora usan CONVERT_TZ
+  const [resumen]: any = await pool.query(`
+    SELECT
+      COUNT(*)                                                                    AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total     ELSE 0 END), 0)  AS MontoTotal,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Descuento ELSE 0 END), 0)  AS TotalDescuentos,
+      COALESCE(SUM(CASE WHEN Estado='Anulado'    THEN 1         ELSE 0 END), 0)  AS Anuladas
+    FROM ventas
+    WHERE DATE(${TZ_FECHA('FechaVenta')}) BETWEEN ? AND ?
   `, [desde, hasta]);
 
   const [porVendedor]: any = await pool.query(`
     SELECT
-      CONCAT(u.Nombres,' ',u.Apellidos)                                     AS Vendedor,
-      COUNT(*)                                                               AS TotalVentas,
-      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0) AS MontoTotal
+      CONCAT(u.Nombres,' ',u.Apellidos)                                          AS Vendedor,
+      COUNT(*)                                                                    AS TotalVentas,
+      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0)  AS MontoTotal
     FROM ventas v
     INNER JOIN usuarios u ON v.IdUsuario = u.IdUsuario
-    WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
+    WHERE DATE(${TZ_FECHA('v.FechaVenta')}) BETWEEN ? AND ?
     GROUP BY v.IdUsuario, Vendedor
     ORDER BY MontoTotal DESC
   `, [desde, hasta]);
@@ -195,104 +214,96 @@ export const getReporteGeneral = async (desde: string, hasta: string) => {
   const [porFormaPago]: any = await pool.query(`
     SELECT
       f.NombreFormaPago,
-      COUNT(*)                                                               AS TotalVentas,
-      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0) AS MontoTotal
+      COUNT(*)                                                                    AS TotalVentas,
+      COALESCE(SUM(CASE WHEN v.Estado='Completado' THEN v.Total ELSE 0 END), 0)  AS MontoTotal
     FROM ventas v
     INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
-    WHERE DATE(v.FechaVenta) BETWEEN ? AND ?
+    WHERE DATE(${TZ_FECHA('v.FechaVenta')}) BETWEEN ? AND ?
     GROUP BY f.IdFormaPago, f.NombreFormaPago
     ORDER BY MontoTotal DESC
   `, [desde, hasta]);
 
   const [porDia]: any = await pool.query(`
     SELECT
-      DATE(FechaVenta)                                                       AS Fecha,
-      COUNT(*)                                                               AS TotalVentas,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total ELSE 0 END), 0) AS MontoTotal
+      DATE(${TZ_FECHA('FechaVenta')})                                             AS Fecha,
+      COUNT(*)                                                                    AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total ELSE 0 END), 0)      AS MontoTotal
     FROM ventas
-    WHERE DATE(FechaVenta) BETWEEN ? AND ?
-    GROUP BY DATE(FechaVenta)
+    WHERE DATE(${TZ_FECHA('FechaVenta')}) BETWEEN ? AND ?
+    GROUP BY DATE(${TZ_FECHA('FechaVenta')})
     ORDER BY Fecha ASC
   `, [desde, hasta]);
 
   return { resumen: resumen[0], porVendedor, porFormaPago, porDia };
 };
 
-
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 export const getDashboard = async (idUsuario: number) => {
-  // Fechas en hora Lima (UTC-5)
-  const _limaMs        = Date.now() - (5 * 60 * 60 * 1000);
-  const hoy            = new Date(_limaMs).toISOString().split('T')[0];
-  const ayer           = new Date(_limaMs - 86400000).toISOString().split('T')[0];
+  const _limaMs         = Date.now() - (5 * 60 * 60 * 1000);
+  const hoy             = new Date(_limaMs).toISOString().split('T')[0];
+  const ayer            = new Date(_limaMs - 86400000).toISOString().split('T')[0];
 
-  // Lunes de esta semana (Lima)
-  const _ahoraLima     = new Date(_limaMs);
-  const _diaSemana     = _ahoraLima.getUTCDay() === 0 ? 6 : _ahoraLima.getUTCDay() - 1;
-  const lunesEsta      = new Date(_limaMs - _diaSemana * 86400000).toISOString().split('T')[0];
-  const lunesAnterior  = new Date(new Date(lunesEsta).getTime() - 7 * 86400000).toISOString().split('T')[0];
+  const _ahoraLima      = new Date(_limaMs);
+  const _diaSemana      = _ahoraLima.getUTCDay() === 0 ? 6 : _ahoraLima.getUTCDay() - 1;
+  const lunesEsta       = new Date(_limaMs - _diaSemana * 86400000).toISOString().split('T')[0];
+  const lunesAnterior   = new Date(new Date(lunesEsta).getTime() - 7 * 86400000).toISOString().split('T')[0];
   const domingoAnterior = new Date(new Date(lunesEsta).getTime() - 86400000).toISOString().split('T')[0];
 
-  // 1. MÃ©tricas del dÃ­a
   const [metricasHoy]: any = await pool.query(`
     SELECT
-      COUNT(CASE WHEN Estado='Completado' THEN 1 END)          AS TotalVentas,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS MontoTotal,
-      COUNT(CASE WHEN Estado='Anulado' THEN 1 END)             AS Anuladas
+      COUNT(CASE WHEN Estado='Completado' THEN 1 END)                AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0)  AS MontoTotal,
+      COUNT(CASE WHEN Estado='Anulado' THEN 1 END)                   AS Anuladas
     FROM ventas
-    WHERE DATE(FechaVenta) = ?
+    WHERE ${DATE_LIMA} = ?
   `, [hoy]);
 
-  // 2. MÃ©tricas de ayer
   const [metricasAyer]: any = await pool.query(`
     SELECT
-      COUNT(CASE WHEN Estado='Completado' THEN 1 END)          AS TotalVentas,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS MontoTotal
+      COUNT(CASE WHEN Estado='Completado' THEN 1 END)                AS TotalVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0)  AS MontoTotal
     FROM ventas
-    WHERE DATE(FechaVenta) = ?
+    WHERE ${DATE_LIMA} = ?
   `, [ayer]);
 
-  // 3. Ventas por hora (hoy)
   const [porHora]: any = await pool.query(`
     SELECT
-      HOUR(FechaVenta)                                          AS Hora,
-      COUNT(*)                                                  AS Cantidad,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS Monto
+      ${HOUR_LIMA}                                                     AS Hora,
+      COUNT(*)                                                         AS Cantidad,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0)  AS Monto
     FROM ventas
-    WHERE DATE(FechaVenta) = ? AND Estado = 'Completado'
-    GROUP BY HOUR(FechaVenta)
+    WHERE ${DATE_LIMA} = ? AND Estado = 'Completado'
+    GROUP BY ${HOUR_LIMA}
     ORDER BY Hora ASC
   `, [hoy]);
 
-  // 4. Forma de pago mas usada hoy
   const [formasPago]: any = await pool.query(`
     SELECT
       f.NombreFormaPago,
-      COUNT(*)                                                  AS Cantidad,
-      COALESCE(SUM(v.Total), 0)                                AS Monto
+      COUNT(*)                          AS Cantidad,
+      COALESCE(SUM(v.Total), 0)         AS Monto
     FROM ventas v
     INNER JOIN formaspago f ON v.IdFormaPago = f.IdFormaPago
-    WHERE DATE(v.FechaVenta) = ? AND v.Estado = 'Completado'
+    WHERE DATE(${TZ_FECHA('v.FechaVenta')}) = ? AND v.Estado = 'Completado'
     GROUP BY f.IdFormaPago, f.NombreFormaPago
     ORDER BY Monto DESC
   `, [hoy]);
 
-  // 5. Productos mÃ¡s vendidos hoy
   const [topProductos]: any = await pool.query(`
     SELECT
       p.NombreProducto,
-      SUM(dv.Cantidad)       AS TotalUnidades,
-      SUM(dv.SubTotal)       AS TotalMonto
+      SUM(dv.Cantidad)  AS TotalUnidades,
+      SUM(dv.SubTotal)  AS TotalMonto
     FROM detalleventa dv
-    INNER JOIN ventas     v ON dv.IdVenta     = v.IdVenta
+    INNER JOIN ventas     v ON dv.IdVenta      = v.IdVenta
     INNER JOIN inventario i ON dv.IdInventario = i.IdInventario
-    INNER JOIN productos  p ON i.IdProducto   = p.IdProducto
-    WHERE DATE(v.FechaVenta) = ? AND v.Estado = 'Completado'
+    INNER JOIN productos  p ON i.IdProducto    = p.IdProducto
+    WHERE DATE(${TZ_FECHA('v.FechaVenta')}) = ? AND v.Estado = 'Completado'
     GROUP BY p.IdProducto, p.NombreProducto
     ORDER BY TotalUnidades DESC
     LIMIT 5
   `, [hoy]);
 
-  // 6. Clientes con mÃ¡s compras hoy
   const [topClientes]: any = await pool.query(`
     SELECT
       CONCAT(c.Nombres, ' ', c.Apellidos) AS Cliente,
@@ -300,13 +311,12 @@ export const getDashboard = async (idUsuario: number) => {
       SUM(v.Total)                        AS TotalGastado
     FROM ventas v
     INNER JOIN clientes c ON v.IdCliente = c.IdCliente
-    WHERE DATE(v.FechaVenta) = ? AND v.Estado = 'Completado'
+    WHERE DATE(${TZ_FECHA('v.FechaVenta')}) = ? AND v.Estado = 'Completado'
     GROUP BY v.IdCliente
     ORDER BY TotalGastado DESC
     LIMIT 5
   `, [hoy]);
 
-  // 7. Stock bajo (alertas)
   const [stockBajo]: any = await pool.query(`
     SELECT
       p.NombreProducto,
@@ -323,14 +333,12 @@ export const getDashboard = async (idUsuario: number) => {
     LIMIT 10
   `);
 
-
-  // 8. Mi turno (vendedor actual)
   const [miTurno]: any = await pool.query(`
     SELECT
-      COUNT(CASE WHEN Estado='Completado' THEN 1 END)          AS MisVentas,
-      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS MiMonto
+      COUNT(CASE WHEN Estado='Completado' THEN 1 END)                AS MisVentas,
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0)  AS MiMonto
     FROM ventas
-    WHERE IdUsuario = ? AND DATE(FechaVenta) = ?
+    WHERE IdUsuario = ? AND ${DATE_LIMA} = ?
   `, [idUsuario, hoy]);
 
   const [ultimaVenta]: any = await pool.query(`
@@ -344,22 +352,25 @@ export const getDashboard = async (idUsuario: number) => {
     LIMIT 1
   `, [idUsuario]);
 
-  // 9. Esta semana vs semana anterior
   const [estaSemana]: any = await pool.query(`
-    SELECT COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS Monto,
-           COUNT(CASE WHEN Estado='Completado' THEN 1 END) AS Ventas
-    FROM ventas WHERE DATE(FechaVenta) BETWEEN ? AND ?
+    SELECT
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS Monto,
+      COUNT(CASE WHEN Estado='Completado' THEN 1 END)                AS Ventas
+    FROM ventas
+    WHERE ${DATE_LIMA} BETWEEN ? AND ?
   `, [lunesEsta, hoy]);
 
   const [semanaAnterior]: any = await pool.query(`
-    SELECT COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS Monto,
-           COUNT(CASE WHEN Estado='Completado' THEN 1 END) AS Ventas
-    FROM ventas WHERE DATE(FechaVenta) BETWEEN ? AND ?
+    SELECT
+      COALESCE(SUM(CASE WHEN Estado='Completado' THEN Total END), 0) AS Monto,
+      COUNT(CASE WHEN Estado='Completado' THEN 1 END)                AS Ventas
+    FROM ventas
+    WHERE ${DATE_LIMA} BETWEEN ? AND ?
   `, [lunesAnterior, domingoAnterior]);
 
   return {
-    hoy: metricasHoy[0],
-    ayer: metricasAyer[0],
+    hoy:     metricasHoy[0],
+    ayer:    metricasAyer[0],
     porHora,
     formasPago,
     topProductos,
@@ -370,6 +381,7 @@ export const getDashboard = async (idUsuario: number) => {
   };
 };
 
+// ─── Clientes ─────────────────────────────────────────────────────────────────
 export const createClienteRapido = async (data: {
   DNI?: string; Nombres: string; Apellidos?: string; Telefono?: string;
 }) => {
@@ -381,7 +393,6 @@ export const createClienteRapido = async (data: {
 };
 
 export const getOrCreateClienteSimple = async () => {
-  // Cliente genérico para ventas rápidas sin datos
   const [rows]: any = await pool.query(
     `SELECT IdCliente FROM clientes WHERE DNI = '00000000' LIMIT 1`
   );
@@ -392,4 +403,3 @@ export const getOrCreateClienteSimple = async () => {
   `);
   return result.insertId;
 };
-

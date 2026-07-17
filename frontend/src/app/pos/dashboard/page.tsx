@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -26,16 +26,23 @@ const fmt = (n: number) =>
 
 const pct = (a: number, b: number) => {
   if (b === 0) return null;
-  const diff = ((a - b) / b) * 100;
-  return diff;
+  return ((a - b) / b) * 100;
 };
+
+//  FIX: fecha display en hora Lima
+const fechaLima = () =>
+  new Date(Date.now() - 5 * 60 * 60 * 1000)
+    .toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+// FIX: hora de última venta en Lima
+const horaLima = (iso: string) =>
+  new Date(new Date(iso).getTime())
+    .toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
 const COLORS = ['#6366f1', '#22d3ee', '#f59e0b', '#10b981', '#f43f5e'];
 
-// ─── Componentes pequeños ─────────────────────────────────────────────────────
-function KpiCard({
-  titulo, valor, sub, color = 'indigo', icon,
-}: {
+// ─── Componentes ──────────────────────────────────────────────────────────────
+function KpiCard({ titulo, valor, sub, color = 'indigo', icon }: {
   titulo: string; valor: string; sub?: string; color?: string; icon: string;
 }) {
   const colores: Record<string, string> = {
@@ -69,9 +76,9 @@ function SectionCard({ title, icon, children }: { title: string; icon: string; c
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const [data, setData]       = useState<DashboardData | null>(null);
+  const [data, setData]         = useState<DashboardData | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [error, setError]     = useState('');
+  const [error, setError]       = useState('');
 
   const cargar = async () => {
     setCargando(true);
@@ -87,8 +94,6 @@ export default function DashboardPage() {
   };
 
   useEffect(() => { cargar(); }, []);
-
-  // Auto-refresh cada 2 minutos
   useEffect(() => {
     const interval = setInterval(cargar, 120_000);
     return () => clearInterval(interval);
@@ -115,15 +120,24 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
-  const difHoy  = pct(data.hoy.MontoTotal, data.ayer.MontoTotal);
-  const difSem  = pct(data.semanas.esta.Monto, data.semanas.anterior.Monto);
+  const difHoy = pct(data.hoy.MontoTotal, data.ayer.MontoTotal);
+  const difSem = pct(data.semanas.esta.Monto, data.semanas.anterior.Monto);
 
-  // Rellenar horas 8-21 aunque no haya ventas
-  const horasCompletas = Array.from({ length: 14 }, (_, i) => {
-    const h = i + 8;
-    const found = data.porHora.find(x => x.Hora === h);
-    return { hora: `${String(h).padStart(2, '0')}:00`, Monto: found?.Monto ?? 0, Cantidad: found?.Cantidad ?? 0 };
+  //  FIX: rango de horas basado en hora Lima actual
+  const horaActualLima = new Date(Date.now() - 5 * 60 * 60 * 1000).getUTCHours();
+  const horaFin        = Math.max(horaActualLima + 1, 17);
+  const horaInicio     = 7;
+
+  const horasCompletas = Array.from({ length: horaFin - horaInicio }, (_, i) => {
+    const h     = i + horaInicio;
+    const found = data.porHora.find(x => Number(x.Hora) === h); //  fix
+    return {
+      hora:     `${String(h).padStart(2, '0')}:00`,
+      Monto:    found?.Monto    ?? 0,
+      Cantidad: found?.Cantidad ?? 0,
+    };
   });
+
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
@@ -132,16 +146,16 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Dashboard POS</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+          {/*  FIX: fecha en hora Lima */}
+          <p className="text-sm text-gray-500 mt-0.5">{fechaLima()}</p>
         </div>
-        <button onClick={cargar} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 shadow-sm">
+        <button onClick={cargar}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 shadow-sm">
           Actualizar
         </button>
       </div>
 
-      {/* ── KPIs del día ── */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           icon="" titulo="Ventas del día" color="indigo"
@@ -166,9 +180,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Gráfico por hora + Formas de pago ── */}
+      {/* Gráfico por hora + Formas de pago */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
         <div className="lg:col-span-2">
           <SectionCard title="Ventas por hora" icon="">
             <ResponsiveContainer width="100%" height={220}>
@@ -189,23 +202,17 @@ export default function DashboardPage() {
             <>
               <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
-                    <Pie
-                        data={data.formasPago}
-                        dataKey="Monto"
-                        nameKey="NombreFormaPago"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={65}
-                        label={({ name, percent }) =>
-                        `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                        }
-                        labelLine={false}
-                    >
-                        {data.formasPago.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                  <Pie
+                    data={data.formasPago} dataKey="Monto" nameKey="NombreFormaPago"
+                    cx="50%" cy="50%" outerRadius={65}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {data.formasPago.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: any) => fmt(Number(v))} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-1">
@@ -224,9 +231,8 @@ export default function DashboardPage() {
         </SectionCard>
       </div>
 
-      {/* ── Rankings ── */}
+      {/* Rankings */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
         <SectionCard title="Productos más vendidos hoy" icon="">
           {data.topProductos.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">Sin ventas hoy</p>
@@ -238,10 +244,8 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-700 truncate">{p.NombreProducto}</p>
                     <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
-                      <div
-                        className="bg-indigo-500 h-1.5 rounded-full"
-                        style={{ width: `${(p.TotalUnidades / data.topProductos[0].TotalUnidades) * 100}%` }}
-                      />
+                      <div className="bg-indigo-500 h-1.5 rounded-full"
+                        style={{ width: `${(p.TotalUnidades / data.topProductos[0].TotalUnidades) * 100}%` }} />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -254,7 +258,7 @@ export default function DashboardPage() {
           )}
         </SectionCard>
 
-        <SectionCard title="Clientes top hoy" icon="">
+        <SectionCard title="Clientes top hoy" icon="👥">
           {data.topClientes.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">Sin ventas hoy</p>
           ) : (
@@ -274,13 +278,12 @@ export default function DashboardPage() {
         </SectionCard>
       </div>
 
-      {/* ── Alertas + Mi turno + Comparativa ── */}
+      {/* Alertas + Mi turno + Comparativa */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* Stock bajo */}
-        <SectionCard title=" Stock bajo" icon="">
+        <SectionCard title="Stock bajo" icon="">
           {data.stockBajo.length === 0 ? (
-            <p className="text-sm text-emerald-500 text-center py-6"> Todo el stock está OK</p>
+            <p className="text-sm text-emerald-500 text-center py-6">Todo el stock está OK</p>
           ) : (
             <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
               {data.stockBajo.map((s, i) => (
@@ -298,7 +301,6 @@ export default function DashboardPage() {
           )}
         </SectionCard>
 
-        {/* Mi turno */}
         <SectionCard title="Mi turno" icon="">
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -317,7 +319,8 @@ export default function DashboardPage() {
                 <p> {data.miTurno.ultimaVenta.NumeroBoleta}</p>
                 <p> {data.miTurno.ultimaVenta.Cliente}</p>
                 <p> {fmt(data.miTurno.ultimaVenta.Total)}</p>
-                <p> {new Date(data.miTurno.ultimaVenta.FechaVenta).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
+                {/*  FIX: hora de última venta en Lima */}
+                <p> {horaLima(data.miTurno.ultimaVenta.FechaVenta)}</p>
               </div>
             ) : (
               <p className="text-xs text-gray-400 text-center">Sin ventas registradas aún</p>
@@ -325,12 +328,11 @@ export default function DashboardPage() {
           </div>
         </SectionCard>
 
-        {/* Comparativa semanal */}
         <SectionCard title="Esta semana vs anterior" icon="">
           <div className="space-y-4">
             {[
-              { label: 'Esta semana', data: data.semanas.esta, color: 'indigo' },
-              { label: 'Semana anterior', data: data.semanas.anterior, color: 'gray' },
+              { label: 'Esta semana',    data: data.semanas.esta,     color: 'indigo' },
+              { label: 'Semana anterior', data: data.semanas.anterior, color: 'gray'   },
             ].map(({ label, data: d, color }) => (
               <div key={label}>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>

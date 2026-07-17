@@ -64,3 +64,27 @@ export const getProductosSinStock = async () => {
   `);
   return rows;
 };
+
+export const updateInventarioCompleto = async (id: number, data: {
+  stockActual: number;
+  stockMinimo: number;
+  precioVenta: number;
+  idTalla: number | null;
+  idColor: number | null;
+}) => {
+  // 1. Actualizar talla, color y stock en inventario
+  await pool.query(
+    `UPDATE inventario SET StockActual=?, IdTalla=?, IdColor=? WHERE IdInventario=?`,
+    [data.stockActual, data.idTalla, data.idColor, id]
+  );
+
+  // 2. Actualizar precio venta y stock mínimo en productos
+  await pool.query(`
+    UPDATE productos p
+    INNER JOIN inventario i ON i.IdProducto = p.IdProducto
+    SET p.PrecioVenta=?, p.StockMinimo=?
+    WHERE i.IdInventario=?
+  `, [data.precioVenta, data.stockMinimo, id]);
+
+  return true;
+};

@@ -20,3 +20,10 @@ export const actualizarStock = async (id: number, stockActual: number) => {
 export const obtenerAlertas = async () => {
   return await repo.getProductosSinStock();
 };
+
+export const actualizarInventarioCompleto = async (id: number, data: {
+  stockActual: number; stockMinimo: number; precioVenta: number;
+  idTalla: number | null; idColor: number | null;
+}) => {
+  return await repo.updateInventarioCompleto(id, data);
+};

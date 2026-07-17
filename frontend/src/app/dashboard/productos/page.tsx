@@ -16,6 +16,7 @@ const FORM_VACIO = {
   Codigo: '', NombreProducto: '', Descripcion: '',
   PrecioCompra: '', PrecioVenta: '', StockMinimo: '1',
   IdCategoria: '', IdTalla: '', IdColor: '', StockInicial: '0',
+  Estado: '1',
 };
 
 export default function ProductosPage() {
@@ -65,18 +66,31 @@ export default function ProductosPage() {
     setModal('crear');
   };
 
-  const abrirEditar = (p: Producto) => {
+  const abrirEditar = async (p: Producto) => {
     setSeleccionado(p);
+
+    // Traer el inventario actual del producto para cargar talla y color
+    let idTalla = '';
+    let idColor = '';
+    try {
+      const inv = await apiFetch<{ ok: boolean; data: any[] }>(`/inventario/producto/${p.IdProducto}`);
+      if (inv.data && inv.data.length > 0) {
+        idTalla = inv.data[0].IdTalla  ? String(inv.data[0].IdTalla)  : '';
+        idColor = inv.data[0].IdColor  ? String(inv.data[0].IdColor)  : '';
+      }
+    } catch (_) {}
+
     setForm({
       Codigo: p.Codigo, NombreProducto: p.NombreProducto,
       Descripcion: p.Descripcion, PrecioCompra: p.PrecioCompra,
       PrecioVenta: p.PrecioVenta, StockMinimo: String(p.StockMinimo),
-      IdCategoria: String(p.IdCategoria), IdTalla: '', IdColor: '', StockInicial: '0',
+      IdCategoria: String(p.IdCategoria),
+      IdTalla: idTalla, IdColor: idColor,
+      StockInicial: '0', Estado: String(p.Estado),
     });
     setMsgModal(null);
     setModal('editar');
   };
-
   const cerrar = () => { setModal(null); setSeleccionado(null); };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -91,20 +105,21 @@ export default function ProductosPage() {
         PrecioVenta:  Number(form.PrecioVenta),
         StockMinimo:  Number(form.StockMinimo),
         IdCategoria:  Number(form.IdCategoria),
-        IdTalla:      form.IdTalla  ? Number(form.IdTalla)  : undefined,
-        IdColor:      form.IdColor  ? Number(form.IdColor)  : undefined,
+        IdTalla:      form.IdTalla ? Number(form.IdTalla) : null,
+        IdColor:      form.IdColor ? Number(form.IdColor) : null,
         StockInicial: Number(form.StockInicial),
+        Estado:       Number(form.Estado),
       };
       if (modal === 'crear') {
         await apiFetch('/productos', { method: 'POST', body: JSON.stringify(body) });
       } else if (modal === 'editar' && seleccionado) {
         await apiFetch(`/productos/${seleccionado.IdProducto}`, { method: 'PUT', body: JSON.stringify(body) });
       }
-      setMsgModal('✅ Guardado correctamente');
+      setMsgModal('Guardado correctamente');
       cargar();
       setTimeout(cerrar, 1000);
     } catch (e: any) {
-      setMsgModal(`❌ ${e.message}`);
+      setMsgModal(` ${e.message}`);
     } finally {
       setGuardando(false);
     }
@@ -302,30 +317,28 @@ export default function ProductosPage() {
               </div>
 
               {/* Talla + Color (solo al crear) */}
-              {modal === 'crear' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="IdTalla" className="text-xs text-gray-500 mb-1 block">Talla</label>
-                    <select id = "IdTalla" name="IdTalla" value={form.IdTalla} onChange={handleChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
-                      <option value="">Sin talla</option>
-                      {tallas.map(t => (
-                        <option key={t.IdTalla} value={t.IdTalla}>{t.NombreTalla}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="IdColor" className="text-xs text-gray-500 mb-1 block">Color</label>
-                    <select id = "IdColor" name="IdColor" value={form.IdColor} onChange={handleChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
-                      <option value="">Sin color</option>
-                      {colores.map(c => (
-                        <option key={c.IdColor} value={c.IdColor}>{c.NombreColor}</option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="IdTalla" className="text-xs text-gray-500 mb-1 block">Talla</label>
+                  <select id="IdTalla" name="IdTalla" value={form.IdTalla} onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
+                    <option value="">Sin talla</option>
+                    {tallas.map(t => (
+                      <option key={t.IdTalla} value={t.IdTalla}>{t.NombreTalla}</option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                <div>
+                  <label htmlFor="IdColor" className="text-xs text-gray-500 mb-1 block">Color</label>
+                  <select id="IdColor" name="IdColor" value={form.IdColor} onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
+                    <option value="">Sin color</option>
+                    {colores.map(c => (
+                      <option key={c.IdColor} value={c.IdColor}>{c.NombreColor}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               {/* Stock inicial (solo al crear) */}
               {modal === 'crear' && (
@@ -341,6 +354,18 @@ export default function ProductosPage() {
 
               {msgModal && <p className="text-sm text-center">{msgModal}</p>}
             </div>
+
+            {/* Estado — solo al editar */}
+              {modal === 'editar' && (
+                <div>
+                  <label htmlFor="Estado" className="text-xs text-gray-500 mb-1 block">Estado</label>
+                  <select id = "Estado" name="Estado" value={form.Estado} onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                  </select>
+                </div>
+              )}
 
             <div className="flex gap-3 p-6 pt-0">
               <button onClick={cerrar}

@@ -131,8 +131,9 @@ export default function ConfiguracionPage() {
       setConfirmId(null);
       cargar(tab);
     } catch (e: any) {
-      alert(`❌ ${e.message}`);
       setConfirmId(null);
+      setError(`${e.message}`);
+      setTimeout(() => setError(null), 4000);
     }
   };
 

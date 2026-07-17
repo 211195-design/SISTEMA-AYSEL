@@ -42,15 +42,26 @@ export const createProducto = async (data: {
 export const updateProducto = async (id: number, data: {
   IdCategoria: number; Codigo: string; NombreProducto: string;
   Descripcion: string; PrecioCompra: number; PrecioVenta: number;
-  StockMinimo: number;
+  StockMinimo: number; Estado: number;
+  IdTalla?: number | null; IdColor?: number | null;
 }) => {
   const [result]: any = await pool.query(`
     UPDATE productos
     SET IdCategoria=?, Codigo=?, NombreProducto=?, Descripcion=?,
-        PrecioCompra=?, PrecioVenta=?, StockMinimo=?
+        PrecioCompra=?, PrecioVenta=?, StockMinimo=?, Estado=?
     WHERE IdProducto=?
   `, [data.IdCategoria, data.Codigo, data.NombreProducto, data.Descripcion,
-      data.PrecioCompra, data.PrecioVenta, data.StockMinimo, id]);
+      data.PrecioCompra, data.PrecioVenta, data.StockMinimo, data.Estado, id]);
+
+  // Actualizar también el inventario si tiene talla/color
+  if (data.IdTalla !== undefined || data.IdColor !== undefined) {
+    await pool.query(`
+      UPDATE inventario
+      SET IdTalla=?, IdColor=?
+      WHERE IdProducto=?
+    `, [data.IdTalla ?? null, data.IdColor ?? null, id]);
+  }
+
   return result.affectedRows > 0;
 };
 

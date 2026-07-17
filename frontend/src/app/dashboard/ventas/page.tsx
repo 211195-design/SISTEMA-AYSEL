@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
-import { ShoppingCart, Plus, Eye, XCircle, X, Trash2, Search, FileText, MessageCircle, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, Plus, Eye, XCircle, X, Trash2, Search, FileText, Send } from 'lucide-react';
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Venta {
   IdVenta: number; NumeroBoleta: string; FechaVenta: string;
   SubTotal: string; Descuento: string; Total: string; Estado: string;
@@ -19,21 +20,16 @@ interface FormaPago { IdFormaPago: number; NombreFormaPago: string; }
 interface ItemInventario {
   IdInventario: number; StockActual: number; Codigo: string;
   NombreProducto: string; PrecioVenta: string; NombreCategoria?: string;
-  NombreTalla: string; NombreColor: string; Estado?: number;
+  NombreTalla: string; NombreColor: string;
 }
 interface LineaVenta {
   IdInventario: number; NombreProducto: string; Codigo: string;
   NombreTalla: string; NombreColor: string;
   Cantidad: number; PrecioUnitario: number; StockActual: number;
 }
-interface ClienteNuevo {
-  DNI: string; Nombres: string; Apellidos: string; Telefono: string;
-}
-interface VentaCreada {
-  IdVenta: number; NumeroBoleta: string; Telefono?: string; Cliente?: string;
-}
 
-const BASE_URL = 'http://localhost:3001';
+type TipoCliente = 'simple' | 'registrado' | 'nuevo';
+type TipoComprobante = 'BOLETA' | 'FACTURA';
 
 const fmt = (v: string | number) =>
   `S/ ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
@@ -41,9 +37,9 @@ const fmt = (v: string | number) =>
 const fechaLocal = (iso: string) =>
   new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
 
-type TipoCliente = 'registrado' | 'simple' | 'nuevo';
-type TipoComprobante = 'BOLETA' | 'FACTURA';
+const BASE_URL = 'http://localhost:3001';
 
+// ─── Componente principal ─────────────────────────────────────────────────────
 export default function VentasPage() {
   const [ventas, setVentas]           = useState<Venta[]>([]);
   const [cargando, setCargando]       = useState(true);
@@ -63,26 +59,26 @@ export default function VentasPage() {
   const [guardando, setGuardando]     = useState(false);
   const [msgNueva, setMsgNueva]       = useState<string | null>(null);
 
-  // Tipo de cliente
+  // Tipo cliente
   const [tipoCliente, setTipoCliente] = useState<TipoCliente>('registrado');
-  const [clienteNuevo, setClienteNuevo] = useState<ClienteNuevo>({
-    DNI: '', Nombres: '', Apellidos: '', Telefono: '',
-  });
-
-  // Tipo de comprobante
-  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('BOLETA');
-  const [rucFactura, setRucFactura] = useState('');
-
-  // Búsqueda cliente
-  const [busqCliente, setBusqCliente] = useState('');
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+  const [busqCliente, setBusqCliente] = useState('');
   const [mostrarClientes, setMostrarClientes] = useState(false);
+
+  // Cliente nuevo
+  const [clienteNuevo, setClienteNuevo] = useState({ DNI: '', Nombres: '', Apellidos: '', Telefono: '' });
+
+  // Tipo comprobante
+  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('BOLETA');
+  const [rucFactura, setRucFactura]   = useState('');
 
   // Búsqueda producto
   const [busqProd, setBusqProd]       = useState('');
 
-  // Boleta generada (post-venta)
-  const [ventaCreada, setVentaCreada] = useState<VentaCreada | null>(null);
+  // Modal boleta
+  const [boletaUrl, setBoletaUrl]     = useState<string | null>(null);
+  const [boletaVenta, setBoletaVenta] = useState<VentaDetalle | null>(null);
+  const iframeRef                     = useRef<HTMLIFrameElement>(null);
 
   const cargarVentas = () => {
     setCargando(true);
@@ -125,16 +121,15 @@ export default function VentasPage() {
     setBusqCliente('');
     setClienteSeleccionado(null);
     setMostrarClientes(false);
-    setMsgNueva(null);
     setTipoCliente('registrado');
     setClienteNuevo({ DNI: '', Nombres: '', Apellidos: '', Telefono: '' });
     setTipoComprobante('BOLETA');
     setRucFactura('');
-    setVentaCreada(null);
+    setMsgNueva(null);
     setModalNueva(true);
   };
 
-  // ── Clientes frecuentes (top 5 por compras) ──
+  // ── Clientes frecuentes ──
   const clientesFrecuentes = [...clientes]
     .sort((a, b) => (b.TotalCompras ?? 0) - (a.TotalCompras ?? 0))
     .slice(0, 5);
@@ -142,8 +137,7 @@ export default function VentasPage() {
   const clientesFiltrados = busqCliente.trim()
     ? clientes.filter(c =>
         `${c.Nombres} ${c.Apellidos}`.toLowerCase().includes(busqCliente.toLowerCase()) ||
-        c.DNI.includes(busqCliente)
-      )
+        c.DNI.includes(busqCliente))
     : clientesFrecuentes;
 
   const seleccionarCliente = (c: Cliente) => {
@@ -166,14 +160,14 @@ export default function VentasPage() {
           ? { ...l, Cantidad: Math.min(l.Cantidad + 1, item.StockActual) } : l);
       }
       return [...prev, {
-        IdInventario: item.IdInventario,
+        IdInventario:   item.IdInventario,
         NombreProducto: item.NombreProducto,
-        Codigo: item.Codigo,
-        NombreTalla: item.NombreTalla,
-        NombreColor: item.NombreColor,
-        Cantidad: 1,
+        Codigo:         item.Codigo,
+        NombreTalla:    item.NombreTalla,
+        NombreColor:    item.NombreColor,
+        Cantidad:       1,
         PrecioUnitario: Number(item.PrecioVenta),
-        StockActual: item.StockActual,
+        StockActual:    item.StockActual,
       }];
     });
     setBusqProd('');
@@ -181,33 +175,36 @@ export default function VentasPage() {
 
   const cambiarCantidad = (idx: number, val: number) =>
     setLineas(prev => prev.map((l, i) =>
-      i === idx ? { ...l, Cantidad: Math.max(1, Math.min(val, l.StockActual)) } : l
-    ));
+      i === idx ? { ...l, Cantidad: Math.max(1, Math.min(val, l.StockActual)) } : l));
 
   const quitarLinea = (idx: number) =>
     setLineas(prev => prev.filter((_, i) => i !== idx));
 
-  const subTotal     = lineas.reduce((acc, l) => acc + l.PrecioUnitario * l.Cantidad, 0);
-  const montoDesc    = subTotal * (Number(pctDescuento) / 100);
-  const totalFinal   = subTotal - montoDesc;
+  const subTotal   = lineas.reduce((acc, l) => acc + l.PrecioUnitario * l.Cantidad, 0);
+  const montoDesc  = subTotal * (Number(pctDescuento) / 100);
+  const totalFinal = subTotal - montoDesc;
 
-  const validarClienteOk = () => {
-    if (tipoCliente === 'registrado') return !!clienteSeleccionado;
-    if (tipoCliente === 'nuevo') return clienteNuevo.Nombres.trim().length > 0;
-    return true; // simple
-  };
-
+  // ── Guardar venta ──
   const guardarVenta = async () => {
-    if (!validarClienteOk() || !idFormaPago || lineas.length === 0) {
-      setMsgNueva('❌ Completa cliente, forma de pago y al menos un producto');
-      return;
+    if (tipoCliente === 'registrado' && !clienteSeleccionado) {
+      setMsgNueva(' Selecciona un cliente'); return;
     }
+    if (tipoCliente === 'nuevo' && !clienteNuevo.Nombres.trim()) {
+      setMsgNueva(' Ingresa el nombre del cliente'); return;
+    }
+    if (!idFormaPago || lineas.length === 0) {
+      setMsgNueva(' Completa forma de pago y al menos un producto'); return;
+    }
+    if (tipoComprobante === 'FACTURA' && !rucFactura.trim()) {
+      setMsgNueva(' Ingresa el RUC para la factura'); return;
+    }
+
     setGuardando(true); setMsgNueva(null);
     try {
       const body: any = {
-        IdFormaPago: Number(idFormaPago),
-        Descuento: montoDesc,
-        TipoCliente: tipoCliente,
+        IdFormaPago:     Number(idFormaPago),
+        Descuento:       montoDesc,
+        TipoCliente:     tipoCliente,
         TipoComprobante: tipoComprobante,
         items: lineas.map(l => ({
           IdInventario:   l.IdInventario,
@@ -215,48 +212,53 @@ export default function VentasPage() {
           PrecioUnitario: l.PrecioUnitario,
         })),
       };
-      if (tipoCliente === 'registrado') body.IdCliente = clienteSeleccionado?.IdCliente;
-      if (tipoCliente === 'nuevo') body.ClienteNuevo = clienteNuevo;
 
-      const r = await apiFetch<{ ok: boolean; data: VentaDetalle }>('/ventas', {
-        method: 'POST',
-        body: JSON.stringify(body),
+      if (tipoCliente === 'registrado') body.IdCliente = clienteSeleccionado!.IdCliente;
+      if (tipoCliente === 'nuevo')      body.ClienteNuevo = clienteNuevo;
+
+      const r = await apiFetch<{ ok: boolean; data: { IdVenta: number } }>('/ventas', {
+        method: 'POST', body: JSON.stringify(body),
       });
 
-      setMsgNueva('✅ Venta registrada correctamente');
+      const idVenta  = r.data.IdVenta;
+      const ventaDet = await apiFetch<{ ok: boolean; data: VentaDetalle }>(`/ventas/${idVenta}`);
+
+      setModalNueva(false);
       cargarVentas();
-      setVentaCreada({
-        IdVenta: r.data.IdVenta,
-        NumeroBoleta: r.data.NumeroBoleta,
-        Telefono: r.data.Telefono,
-        Cliente: r.data.Cliente,
-      });
+
+      // Abrir boleta automáticamente
+      const url = `${BASE_URL}/api/ventas/${idVenta}/boleta?tipo=${tipoComprobante}${tipoComprobante === 'FACTURA' ? `&ruc=${rucFactura}` : ''}`;
+      setBoletaUrl(url);
+      setBoletaVenta(ventaDet.data);
+
     } catch (e: any) {
-      setMsgNueva(`❌ ${e.message}`);
+      setMsgNueva(` ${e.message}`);
     } finally {
       setGuardando(false);
     }
   };
 
-  const urlBoleta = (idVenta: number) => {
-    const tipo = tipoComprobante.toLowerCase();
-    const ruc = tipoComprobante === 'FACTURA' && rucFactura ? `&ruc=${rucFactura}` : '';
-    return `${BASE_URL}/api/ventas/${idVenta}/boleta?tipo=${tipo}${ruc}`;
-  };
-
-  const enviarWhatsapp = (telefono: string | undefined, numeroBoleta: string, idVenta: number) => {
-    if (!telefono) {
-      alert('Este cliente no tiene número de teléfono registrado.');
-      return;
-    }
-    const tel = telefono.replace(/\D/g, '');
-    const telConCodigo = tel.startsWith('51') ? tel : `51${tel}`;
-    const mensaje = encodeURIComponent(
-      `Hola, aquí está tu comprobante ${numeroBoleta} de Tienda Aysel. Puedes verlo/descargarlo aquí: ${urlBoleta(idVenta)}`
+  // ── WhatsApp ──
+  const enviarWhatsApp = (venta: VentaDetalle, url: string) => {
+    const telefono = venta.Telefono?.replace(/\D/g, '') ?? '';
+    if (!telefono) { alert('Este cliente no tiene teléfono registrado'); return; }
+    const msg = encodeURIComponent(
+      `Hola ${venta.Cliente} \n` +
+      `Aquí está tu comprobante de compra:\n` +
+      ` *${venta.NumeroBoleta}*\n` +
+      ` Total: S/ ${Number(venta.Total).toFixed(2)}\n` +
+      ` Fecha: ${fechaLocal(venta.FechaVenta)}\n\n` +
+      `¡Gracias por tu compra en Tienda Aysel! `
     );
-    window.open(`https://wa.me/${telConCodigo}?text=${mensaje}`, '_blank');
+    window.open(`https://wa.me/51${telefono}?text=${msg}`, '_blank');
   };
 
+  const descargarBoleta = (idVenta: number, tipo: string, ruc?: string) => {
+    const url = `${BASE_URL}/api/ventas/${idVenta}/boleta?tipo=${tipo}${ruc ? `&ruc=${ruc}` : ''}`;
+    window.open(url, '_blank');
+  };
+
+  // Stats
   const totalVentas  = ventas.length;
   const completadas  = ventas.filter(v => v.Estado === 'Completado').length;
   const ingresoTotal = ventas.filter(v => v.Estado === 'Completado')
@@ -266,7 +268,7 @@ export default function VentasPage() {
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Cargando ventas...</div>
   );
   if (error) return (
-    <div className="bg-red-50 text-red-600 rounded-xl p-4 text-sm">⚠️ {error}</div>
+    <div className="bg-red-50 text-red-600 rounded-xl p-4 text-sm"> {error}</div>
   );
 
   return (
@@ -307,13 +309,13 @@ export default function VentasPage() {
       <div className="bg-white rounded-2xl shadow-sm p-5">
         <div className="flex flex-wrap gap-3 mb-4">
           <div>
-            <label htmlFor="Desde" className="text-xs text-gray-400 block mb-1">Desde</label>
-            <input id="Desde" type="date" value={desde} onChange={e => setDesde(e.target.value)}
+            <label className="text-xs text-gray-400 block mb-1">Desde</label>
+            <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
           </div>
           <div>
-            <label htmlFor="Hasta" className="text-xs text-gray-400 block mb-1">Hasta</label>
-            <input id="Hasta" type="date" value={hasta} onChange={e => setHasta(e.target.value)}
+            <label className="text-xs text-gray-400 block mb-1">Hasta</label>
+            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
           </div>
           <div className="flex items-end gap-2">
@@ -361,10 +363,10 @@ export default function VentasPage() {
                         className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-500" title="Ver detalle">
                         <Eye size={15} />
                       </button>
-                      <a href={`${BASE_URL}/api/ventas/${v.IdVenta}/boleta`} target="_blank" rel="noreferrer"
+                      <button onClick={() => descargarBoleta(v.IdVenta, 'BOLETA')}
                         className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500" title="Ver boleta">
                         <FileText size={15} />
-                      </a>
+                      </button>
                       {v.Estado === 'Completado' && (
                         <button onClick={() => anularVenta(v.IdVenta)}
                           className="p-1.5 rounded-lg hover:bg-red-50 text-red-400" title="Anular">
@@ -380,7 +382,7 @@ export default function VentasPage() {
         </div>
       </div>
 
-      {/* Modal detalle */}
+      {/* ── Modal detalle ── */}
       {detalle && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
@@ -389,7 +391,7 @@ export default function VentasPage() {
                 <h2 className="text-base font-bold text-gray-800">Boleta {detalle.NumeroBoleta}</h2>
                 <p className="text-xs text-gray-400">{fechaLocal(detalle.FechaVenta)}</p>
               </div>
-              <button type="button" onClick={() => setDetalle(null)} aria-label="Cerrar modal" className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              <button onClick={() => setDetalle(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -418,21 +420,19 @@ export default function VentasPage() {
                 <div className="flex justify-between font-bold text-gray-800 text-base"><span>Total</span><span>{fmt(detalle.Total)}</span></div>
               </div>
               <div className="flex gap-2 pt-2">
-                <a href={`${BASE_URL}/api/ventas/${detalle.IdVenta}/boleta`} target="_blank" rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
-                  <FileText size={15} /> Ver PDF
-                </a>
-                <button onClick={() => enviarWhatsapp(detalle.Telefono, detalle.NumeroBoleta, detalle.IdVenta)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600 font-medium">
-                  <MessageCircle size={15} /> WhatsApp
-                </button>
-              </div>
-              <div className="flex gap-3 pt-2">
                 <button onClick={() => setDetalle(null)}
                   className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cerrar</button>
+                <button onClick={() => descargarBoleta(detalle.IdVenta, 'BOLETA')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-500 text-white rounded-xl hover:bg-blue-600">
+                  <FileText size={14} /> Boleta
+                </button>
+                <button onClick={() => enviarWhatsApp(detalle, '')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600">
+                  <Send size={14} /> WhatsApp
+                </button>
                 {detalle.Estado === 'Completado' && (
                   <button onClick={() => anularVenta(detalle.IdVenta)}
-                    className="flex-1 px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 font-medium">Anular venta</button>
+                    className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600">Anular</button>
                 )}
               </div>
             </div>
@@ -440,113 +440,141 @@ export default function VentasPage() {
         </div>
       )}
 
-      {/* Modal nueva venta */}
+      {/* ── Modal boleta post-venta ── */}
+      {boletaUrl && boletaVenta && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-gray-800"> Venta registrada</h2>
+                <p className="text-xs text-gray-400">{boletaVenta.NumeroBoleta} · {fmt(boletaVenta.Total)}</p>
+              </div>
+              <button onClick={() => { setBoletaUrl(null); setBoletaVenta(null); }}
+                className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+
+            {/* Vista previa PDF */}
+            <div className="flex-1 overflow-hidden p-4">
+              <iframe
+                ref={iframeRef}
+                src={boletaUrl}
+                className="w-full h-full rounded-xl border border-gray-200"
+                style={{ minHeight: '400px' }}
+                title="Boleta"
+              />
+            </div>
+
+            <div className="flex gap-2 p-4 shrink-0 border-t border-gray-100">
+              <button onClick={() => window.open(boletaUrl, '_blank')}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-blue-500 text-white rounded-xl hover:bg-blue-600 font-medium">
+                <FileText size={15} /> Descargar PDF
+              </button>
+              <button onClick={() => enviarWhatsApp(boletaVenta, boletaUrl)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600 font-medium">
+                <Send size={15} /> Enviar WhatsApp
+              </button>
+              <button onClick={() => { setBoletaUrl(null); setBoletaVenta(null); }}
+                className="px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal nueva venta ── */}
       {modalNueva && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
-              <h2 className="text-base font-bold text-gray-800">
-                {ventaCreada ? 'Venta registrada' : 'Nueva Venta'}
-              </h2>
-              <button type="button" onClick={() => setModalNueva(false)} aria-label="Cerrar modal" className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+              <h2 className="text-base font-bold text-gray-800">Nueva Venta</h2>
+              <button onClick={() => setModalNueva(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
 
-            {/* ── Pantalla de éxito post-venta ── */}
-            {ventaCreada ? (
-              <div className="p-8 flex flex-col items-center text-center gap-4">
-                <div className="p-4 rounded-full bg-green-50">
-                  <CheckCircle2 size={40} className="text-green-500" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-800">¡Venta registrada!</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Comprobante <span className="font-mono font-medium text-purple-600">{ventaCreada.NumeroBoleta}</span>
-                    {ventaCreada.Cliente ? ` — ${ventaCreada.Cliente}` : ''}
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm mt-2">
-                  <a href={urlBoleta(ventaCreada.IdVenta)} target="_blank" rel="noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">
-                    <FileText size={16} /> Ver / descargar {tipoComprobante === 'FACTURA' ? 'factura' : 'boleta'}
-                  </a>
-                  <button
-                    onClick={() => enviarWhatsapp(ventaCreada.Telefono, ventaCreada.NumeroBoleta, ventaCreada.IdVenta)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-green-500 text-white rounded-xl hover:bg-green-600 font-medium">
-                    <MessageCircle size={16} /> Enviar por WhatsApp
-                  </button>
-                </div>
-
-                <button onClick={() => setModalNueva(false)}
-                  className="mt-4 px-4 py-2 text-sm text-gray-400 hover:text-gray-600">
-                  Cerrar
-                </button>
-              </div>
-            ) : (
-            <>
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
 
-              {/* ── Tipo de cliente (tabs) ── */}
+              {/* Tipo comprobante */}
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Tipo de venta *</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['registrado', 'simple', 'nuevo'] as TipoCliente[]).map(tipo => (
-                    <button key={tipo} type="button"
-                      onClick={() => setTipoCliente(tipo)}
-                      className={`px-3 py-2 text-xs font-medium rounded-xl border transition-colors ${
-                        tipoCliente === tipo
+                <label className="text-xs text-gray-500 mb-2 block font-medium">Tipo de comprobante</label>
+                <div className="flex gap-2">
+                  {(['BOLETA', 'FACTURA'] as TipoComprobante[]).map(t => (
+                    <button key={t} onClick={() => setTipoComprobante(t)}
+                      className={`flex-1 py-2 text-sm font-medium rounded-xl border transition-colors ${
+                        tipoComprobante === t
                           ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                          : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                       }`}>
-                      {tipo === 'registrado' ? 'Cliente registrado' : tipo === 'simple' ? 'Venta simple' : 'Cliente nuevo'}
+                      {t === 'BOLETA' ? ' Boleta' : ' Factura'}
+                    </button>
+                  ))}
+                </div>
+                {tipoComprobante === 'FACTURA' && (
+                  <input value={rucFactura} onChange={e => setRucFactura(e.target.value)}
+                    placeholder="RUC del cliente (11 dígitos)"
+                    className="mt-2 w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                )}
+              </div>
+
+              {/* Tipo cliente */}
+              <div>
+                <label className="text-xs text-gray-500 mb-2 block font-medium">Tipo de cliente</label>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'simple',      label: ' Venta rápida' },
+                    { key: 'registrado',  label: ' Registrado'   },
+                    { key: 'nuevo',       label: ' Nuevo cliente' },
+                  ] as { key: TipoCliente; label: string }[]).map(t => (
+                    <button key={t.key} onClick={() => setTipoCliente(t.key)}
+                      className={`flex-1 py-2 text-xs font-medium rounded-xl border transition-colors ${
+                        tipoCliente === t.key
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}>
+                      {t.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* ── Cliente registrado: buscador ── */}
+              {/* Simple — sin datos */}
+              {tipoCliente === 'simple' && (
+                <div className="bg-yellow-50 rounded-xl p-3 text-sm text-yellow-700">
+                   Venta rápida sin datos del cliente. Se registrará como "Cliente General".
+                </div>
+              )}
+
+              {/* Registrado */}
               {tipoCliente === 'registrado' && (
                 <div>
-                  <label htmlFor="Cliente" className="text-xs text-gray-500 mb-1 block">Cliente *</label>
-
+                  <label className="text-xs text-gray-500 mb-1 block">Buscar cliente *</label>
                   {clienteSeleccionado ? (
                     <div className="flex items-center justify-between bg-purple-50 rounded-xl px-4 py-2.5">
                       <div>
-                        <p className="text-sm font-medium text-gray-800">
-                          {clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}
-                        </p>
-                        <p className="text-xs text-gray-400">DNI: {clienteSeleccionado.DNI}</p>
+                        <p className="text-sm font-medium text-gray-800">{clienteSeleccionado.Nombres} {clienteSeleccionado.Apellidos}</p>
+                        <p className="text-xs text-gray-400">DNI: {clienteSeleccionado.DNI} · Tel: {clienteSeleccionado.Telefono}</p>
                       </div>
-                      <button type="button" onClick={() => setClienteSeleccionado(null)} aria-label="Quitar cliente seleccionado" title="Quitar cliente"
-                        className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                      <button onClick={() => setClienteSeleccionado(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
                     </div>
                   ) : (
                     <div className="relative">
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Buscar cliente por nombre o DNI..."
-                            value={busqCliente}
-                            onChange={e => { setBusqCliente(e.target.value); setMostrarClientes(true); }}
-                            onFocus={() => setMostrarClientes(true)}
-                            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300"
-                          />
-                        </div>
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input type="text" placeholder="Buscar por nombre o DNI..."
+                          value={busqCliente}
+                          onChange={e => { setBusqCliente(e.target.value); setMostrarClientes(true); }}
+                          onFocus={() => setMostrarClientes(true)}
+                          className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
                       </div>
-
                       {mostrarClientes && (
-                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
                           {!busqCliente.trim() && (
                             <p className="text-xs text-gray-400 px-4 pt-2 pb-1">⭐ Clientes frecuentes</p>
                           )}
                           {clientesFiltrados.length === 0 ? (
                             <p className="text-sm text-gray-400 px-4 py-3">No se encontraron clientes</p>
                           ) : clientesFiltrados.map(c => (
-                            <button key={c.IdCliente}
-                              onClick={() => seleccionarCliente(c)}
-                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-purple-50 text-left transition-colors">
+                            <button key={c.IdCliente} onClick={() => seleccionarCliente(c)}
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-purple-50 text-left transition-colors border-b border-gray-50 last:border-0">
                               <div>
                                 <p className="text-sm font-medium text-gray-800">{c.Nombres} {c.Apellidos}</p>
                                 <p className="text-xs text-gray-400">DNI: {c.DNI}</p>
@@ -563,80 +591,53 @@ export default function VentasPage() {
                 </div>
               )}
 
-              {/* ── Venta simple: mensaje informativo ── */}
-              {tipoCliente === 'simple' && (
-                <div className="bg-blue-50 text-blue-600 text-xs rounded-xl px-4 py-3">
-                  Venta rápida sin registrar datos del cliente. Se asignará automáticamente a &quot;Cliente General&quot;.
-                </div>
-              )}
-
-              {/* ── Cliente nuevo: formulario ── */}
+              {/* Nuevo cliente */}
               {tipoCliente === 'nuevo' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 sm:col-span-1">
-                    <label htmlFor="dniNuevo" className="text-xs text-gray-500 mb-1 block">DNI</label>
-                    <input id="dniNuevo" type="text" maxLength={8} value={clienteNuevo.DNI}
-                      onChange={e => setClienteNuevo(prev => ({ ...prev, DNI: e.target.value.replace(/\D/g, '') }))}
-                      placeholder="12345678"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label htmlFor="telNuevo" className="text-xs text-gray-500 mb-1 block">Teléfono</label>
-                    <input id="telNuevo" type="text" value={clienteNuevo.Telefono}
-                      onChange={e => setClienteNuevo(prev => ({ ...prev, Telefono: e.target.value }))}
-                      placeholder="999999999"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label htmlFor="nombresNuevo" className="text-xs text-gray-500 mb-1 block">Nombres *</label>
-                    <input id="nombresNuevo" type="text" value={clienteNuevo.Nombres}
-                      onChange={e => setClienteNuevo(prev => ({ ...prev, Nombres: e.target.value }))}
-                      placeholder="Ana María"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label htmlFor="apellidosNuevo" className="text-xs text-gray-500 mb-1 block">Apellidos</label>
-                    <input id="apellidosNuevo" type="text" value={clienteNuevo.Apellidos}
-                      onChange={e => setClienteNuevo(prev => ({ ...prev, Apellidos: e.target.value }))}
-                      placeholder="García López"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
+                <div className="space-y-3 bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 font-medium">Datos del nuevo cliente</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">DNI</label>
+                      <input value={clienteNuevo.DNI}
+                        onChange={e => setClienteNuevo(p => ({ ...p, DNI: e.target.value }))}
+                        maxLength={8} placeholder="12345678"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Teléfono</label>
+                      <input value={clienteNuevo.Telefono}
+                        onChange={e => setClienteNuevo(p => ({ ...p, Telefono: e.target.value }))}
+                        placeholder="987000000"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Nombres *</label>
+                      <input value={clienteNuevo.Nombres}
+                        onChange={e => setClienteNuevo(p => ({ ...p, Nombres: e.target.value }))}
+                        placeholder="Ana"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Apellidos</label>
+                      <input value={clienteNuevo.Apellidos}
+                        onChange={e => setClienteNuevo(p => ({ ...p, Apellidos: e.target.value }))}
+                        placeholder="García"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 bg-white" />
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Forma de pago */}
               <div>
-                <label htmlFor="FormaPago" className="text-xs text-gray-500 mb-1 block">Forma de pago *</label>
-                <select id="FormaPago" value={idFormaPago} onChange={e => setIdFormaPago(e.target.value)}
+                <label className="text-xs text-gray-500 mb-1 block">Forma de pago *</label>
+                <select value={idFormaPago} onChange={e => setIdFormaPago(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300">
                   <option value="">Seleccionar...</option>
                   {formasPago.map(f => (
                     <option key={f.IdFormaPago} value={f.IdFormaPago}>{f.NombreFormaPago}</option>
                   ))}
                 </select>
-              </div>
-
-              {/* Tipo de comprobante */}
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">Comprobante *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['BOLETA', 'FACTURA'] as TipoComprobante[]).map(tipo => (
-                    <button key={tipo} type="button"
-                      onClick={() => setTipoComprobante(tipo)}
-                      className={`px-3 py-2 text-xs font-medium rounded-xl border transition-colors ${
-                        tipoComprobante === tipo
-                          ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                      }`}>
-                      {tipo === 'BOLETA' ? 'Boleta' : 'Factura'}
-                    </button>
-                  ))}
-                </div>
-                {tipoComprobante === 'FACTURA' && (
-                  <input type="text" value={rucFactura} onChange={e => setRucFactura(e.target.value.replace(/\D/g, ''))}
-                    placeholder="RUC del cliente (11 dígitos)" maxLength={11}
-                    className="w-full mt-2 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
-                )}
               </div>
 
               {/* Buscador productos */}
@@ -648,7 +649,6 @@ export default function VentasPage() {
                     value={busqProd} onChange={e => setBusqProd(e.target.value)}
                     className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300" />
                 </div>
-
                 {busqProd && prodFiltrados.length > 0 && (
                   <div className="border border-gray-200 rounded-xl mt-1 max-h-44 overflow-y-auto shadow-sm">
                     {prodFiltrados.map(item => (
@@ -658,8 +658,8 @@ export default function VentasPage() {
                           <p className="text-sm font-medium text-gray-800">{item.NombreProducto}</p>
                           <p className="text-xs text-gray-400">
                             {item.NombreCategoria && <span>{item.NombreCategoria} · </span>}
-                            {item.NombreTalla && <span>Talla: {item.NombreTalla} · </span>}
-                            {item.NombreColor && <span>Color: {item.NombreColor} · </span>}
+                            {item.NombreTalla    && <span>T: {item.NombreTalla} · </span>}
+                            {item.NombreColor    && <span>C: {item.NombreColor} · </span>}
                             Stock: {item.StockActual}
                           </p>
                         </div>
@@ -668,12 +668,9 @@ export default function VentasPage() {
                     ))}
                   </div>
                 )}
-                {busqProd && prodFiltrados.length === 0 && (
-                  <p className="text-xs text-gray-400 mt-1 px-2">No se encontraron productos con stock disponible</p>
-                )}
               </div>
 
-              {/* Líneas de venta */}
+              {/* Líneas */}
               {lineas.length > 0 && (
                 <div>
                   <p className="text-xs text-gray-400 mb-2">Productos seleccionados</p>
@@ -683,18 +680,18 @@ export default function VentasPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{l.NombreProducto}</p>
                           <p className="text-xs text-gray-400">
-                            {l.NombreTalla && `Talla: ${l.NombreTalla} · `}
-                            {l.NombreColor && `Color: ${l.NombreColor} · `}
+                            {l.NombreTalla && `T: ${l.NombreTalla} · `}
+                            {l.NombreColor && `C: ${l.NombreColor} · `}
                             {fmt(l.PrecioUnitario)}
                           </p>
                         </div>
                         <input type="number" min={1} max={l.StockActual}
-                          value={l.Cantidad} onChange={e => cambiarCantidad(i, Number(e.target.value))} aria-label="Cantidad"
+                          value={l.Cantidad} onChange={e => cambiarCantidad(i, Number(e.target.value))}
                           className="w-16 px-2 py-1 text-sm text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300" />
                         <span className="text-sm font-bold text-gray-800 w-20 text-right">
                           {fmt(l.PrecioUnitario * l.Cantidad)}
                         </span>
-                        <button type="button" onClick={() => quitarLinea(i)} aria-label="Quitar producto" className="text-red-400 hover:text-red-600">
+                        <button onClick={() => quitarLinea(i)} className="text-red-400 hover:text-red-600">
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -703,16 +700,16 @@ export default function VentasPage() {
                 </div>
               )}
 
-              {/* Descuento % y total */}
+              {/* Totales */}
               <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Subtotal</span>
                   <span className="font-medium text-gray-800">{fmt(subTotal)}</span>
                 </div>
                 <div className="flex justify-between items-center gap-4">
-                  <label htmlFor="pctDescuento" className="text-gray-500 shrink-0">Descuento (%)</label>
+                  <span className="text-gray-500 shrink-0">Descuento (%)</span>
                   <div className="flex items-center gap-2">
-                    <input id="pctDescuento" type="number" min="0" max="100" value={pctDescuento}
+                    <input type="number" min="0" max="100" value={pctDescuento}
                       onChange={e => setPctDescuento(e.target.value)}
                       className="w-20 px-2 py-1 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300" />
                     <span className="text-gray-400 text-xs">= {fmt(montoDesc)}</span>
@@ -735,8 +732,6 @@ export default function VentasPage() {
                 {guardando ? 'Registrando...' : 'Registrar venta'}
               </button>
             </div>
-            </>
-            )}
           </div>
         </div>
       )}
