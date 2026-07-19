@@ -6,32 +6,21 @@ import { getUserFromToken, logout } from '@/lib/auth';
 import Link from 'next/link';
 import {
   LayoutDashboard, Package, Warehouse, ShoppingCart,
-  BarChart2, Users, UserCog, LogOut, Tag
+  BarChart2, Users, UserCog, LogOut, Tag, Bolt, CreditCard
 } from 'lucide-react';
-
-
-
-import { Bolt } from "lucide-react";
 import Image from 'next/image';
 
-
-const menuItems = [
-  {
-    label: "Configuración",
-    href: "/dashboard/configuracion",
-    icon: Bolt,
-  },
-];
 const navItems = [
-  { label: 'Dashboard',  href: '/dashboard',            icon: LayoutDashboard },
-  { label: 'Productos',  href: '/dashboard/productos',  icon: Package },
-  { label: 'Inventario', href: '/dashboard/inventario', icon: Warehouse },
-  { label: 'Ventas',     href: '/dashboard/ventas',     icon: ShoppingCart },
-  { label: 'Reportes',   href: '/dashboard/reportes',   icon: BarChart2 },
-  { label: 'Clientes',   href: '/dashboard/clientes',   icon: Users },
-  { label: 'Usuarios',   href: '/dashboard/usuarios',   icon: UserCog },
-  { label:  'Configuración', href: '/dashboard/configuracion', icon: Bolt },
-  { label: 'Promociones', href: '/dashboard/promociones', icon: Tag  },
+  { label: 'Dashboard',     href: '/dashboard',              icon: LayoutDashboard },
+  { label: 'Productos',     href: '/dashboard/productos',    icon: Package },
+  { label: 'Inventario',    href: '/dashboard/inventario',   icon: Warehouse },
+  { label: 'Ventas',        href: '/dashboard/ventas',       icon: ShoppingCart },
+  { label: 'Reportes',      href: '/dashboard/reportes',     icon: BarChart2 },
+  { label: 'Clientes',      href: '/dashboard/clientes',     icon: Users },
+  { label: 'Usuarios',      href: '/dashboard/usuarios',     icon: UserCog },
+  { label: 'Promociones',   href: '/dashboard/promociones',  icon: Tag },
+  { label: 'Cuentas',       href: '/dashboard/cuentas',      icon: CreditCard },
+  { label: 'Configuración', href: '/dashboard/configuracion',icon: Bolt },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -57,7 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
 
-      {/* â”€â”€ Sidebar â”€â”€ */}
+      {/* ── Sidebar ── */}
       <aside className="w-56 bg-white flex flex-col shadow-md shrink-0">
 
         {/* Logo */}
@@ -102,13 +91,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* â”€â”€ Main â”€â”€ */}
+      {/* ── Main ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Topbar */}
         <header className="bg-white shadow-sm px-6 py-3 flex items-center justify-between shrink-0">
           <p className="text-sm font-semibold text-gray-700">
-            Tienda Aysel ” <span className="text-gray-400 font-normal">Administrador</span>
+            Tienda Aysel · <span className="text-gray-400 font-normal">Administrador</span>
           </p>
           <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold text-sm">
             {initials}
@@ -123,7 +112,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-
-
-
-

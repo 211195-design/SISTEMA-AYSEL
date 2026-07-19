@@ -9,6 +9,13 @@ interface ItemBoleta {
   SubTotal: string | number;
 }
 
+interface CuentaPago {
+  TipoCuenta: string;
+  Titular: string;
+  NumeroCuenta: string;
+  CCI?: string;
+}
+
 interface DatosBoleta {
   NumeroBoleta: string;
   TipoComprobante: 'BOLETA' | 'FACTURA';
@@ -23,6 +30,7 @@ interface DatosBoleta {
   Descuento: string | number;
   Total: string | number;
   detalle: ItemBoleta[];
+  cuentas?: CuentaPago[];
 }
 
 const TIENDA = {
@@ -30,15 +38,41 @@ const TIENDA = {
   ruc:       '12345678901',
   direccion: 'Jr. Ejemplo 123 - Cusco',
   whatsapp:  '999999999',
-  yape:      '999999999',
 };
 
 const fmt = (v: string | number) =>
   `S/ ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
 
-export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
+// Arma el link wa.me con código de país Perú
+const waLink = (numero: string) => {
+  const digitos = numero.replace(/\D/g, '');
+  const conCodigo = digitos.startsWith('51') ? digitos : `51${digitos}`;
+  return `https://wa.me/${conCodigo}`;
+};
+
+// Descarga el QR como buffer PNG (necesario porque PDFKit no acepta URLs directas)
+const descargarQR = async (data: string): Promise<Buffer | null> => {
+  try {
+    const url = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch {
+    return null;
+  }
+};
+
+export const generarBoletaPDF = async (datos: DatosBoleta): Promise<Buffer> => {
+  // Separar cuenta WhatsApp del resto de cuentas de pago
+  const cuentaWhatsapp = datos.cuentas?.find(c => c.TipoCuenta === 'WhatsApp');
+  const cuentasPago    = (datos.cuentas ?? []).filter(c => c.TipoCuenta !== 'WhatsApp');
+
+  const numeroWhatsapp = cuentaWhatsapp?.NumeroCuenta ?? TIENDA.whatsapp;
+  const qrBuffer = await descargarQR(waLink(numeroWhatsapp));
+
   return new Promise((resolve, reject) => {
-    const doc    = new PDFDocument({ size: [226, 800], margin: 10 });
+    const doc    = new PDFDocument({ size: [226, 900], margin: 10 });
     const chunks: Buffer[] = [];
 
     doc.on('data',  chunk => chunks.push(chunk));
@@ -46,7 +80,6 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
     doc.on('error', reject);
 
     const ancho = 206;
-    const cx    = ancho / 2 + 10;
     let   y     = 10;
 
     // ── Encabezado ──────────────────────────────────────────────────────────
@@ -61,7 +94,6 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
     doc.text(TIENDA.direccion, 10, y, { width: ancho, align: 'center' });
     y += 14;
 
-    // Línea
     doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
     y += 6;
 
@@ -75,7 +107,6 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
        .text(datos.NumeroBoleta, 10, y, { width: ancho, align: 'center' });
     y += 14;
 
-    // Línea
     doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
     y += 6;
 
@@ -96,7 +127,6 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
     fila('MONEDA    :', 'SOLES');
     y += 2;
 
-    // Línea
     doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
     y += 6;
 
@@ -148,7 +178,6 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
     filaTot('TOTAL', fmt(datos.Total), true);
     y += 2;
 
-    // Monto en letras (simple)
     const totalNum = Number(datos.Total);
     const entero   = Math.floor(totalNum);
     const cents    = Math.round((totalNum - entero) * 100);
@@ -167,19 +196,44 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
     doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
     y += 6;
 
-    // ── Cuentas bancarias ────────────────────────────────────────────────────
-    doc.fontSize(7).font('Helvetica-Bold').text('CUENTAS BANCARIAS', 10, y);
-    y += 11;
-    doc.fontSize(7).font('Helvetica').text(`Yape: ${TIENDA.yape}`, 10, y);
-    y += 11;
-    y += 4;
+    // ── Cuentas de pago (Yape, Plin, bancos — sin WhatsApp) ─────────────────
+    if (cuentasPago.length > 0) {
+      doc.fontSize(7).font('Helvetica-Bold').text('CUENTAS DE PAGO', 10, y);
+      y += 11;
 
-    doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
-    y += 6;
+      for (const cta of cuentasPago) {
+        doc.fontSize(7).font('Helvetica-Bold')
+           .text(`${cta.TipoCuenta}: `, 10, y, { continued: true });
+        doc.font('Helvetica').text(`${cta.Titular} — ${cta.NumeroCuenta}`);
+        y += 10;
 
-    // ── Pie ──────────────────────────────────────────────────────────────────
+        if (cta.CCI) {
+          doc.fontSize(6.5).font('Helvetica').fillColor('#666666')
+             .text(`   CCI: ${cta.CCI}`, 10, y);
+          doc.fillColor('#000000');
+          y += 9;
+        }
+      }
+      y += 4;
+
+      doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
+      y += 6;
+    }
+
+    // ── WhatsApp con QR ───────────────────────────────────────────────────────
+    doc.fontSize(7).font('Helvetica-Bold')
+       .text('ESCRÍBENOS POR WHATSAPP', 10, y, { width: ancho, align: 'center' });
+    y += 12;
+
+    if (qrBuffer) {
+      const qrSize = 90;
+      const qrX = 10 + (ancho - qrSize) / 2;
+      doc.image(qrBuffer, qrX, y, { width: qrSize, height: qrSize });
+      y += qrSize + 6;
+    }
+
     doc.fontSize(7).font('Helvetica')
-       .text(`WhatsApp: ${TIENDA.whatsapp}`, 10, y, { width: ancho, align: 'center' });
+       .text(`WhatsApp: ${numeroWhatsapp}`, 10, y, { width: ancho, align: 'center' });
     y += 11;
 
     doc.moveTo(10, y).lineTo(216, y).strokeColor('#cccccc').stroke();
@@ -189,7 +243,6 @@ export const generarBoletaPDF = (datos: DatosBoleta): Promise<Buffer> => {
        .text(`${datos.Vendedor}`, 10, y)
        .text(new Date().toLocaleString('es-PE'), 130, y);
 
-    // Ajustar tamaño al contenido
     doc.page.height = y + 20;
     doc.end();
   });

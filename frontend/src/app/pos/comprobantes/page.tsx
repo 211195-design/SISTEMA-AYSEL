@@ -16,6 +16,10 @@ interface DetalleItem {
   Cantidad: number; PrecioUnitario: string; SubTotal: string;
 }
 interface VentaDetalle extends Venta { detalle: DetalleItem[]; }
+interface CuentaPago {
+  IdCuenta: number; TipoCuenta: string; Titular: string;
+  NumeroCuenta: string; CCI?: string; Estado: number;
+}
 
 const fmt = (v: string | number) =>
   `S/ ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
@@ -56,10 +60,51 @@ function numeroALetras(total: number): string {
   return `SON ${letras} Y ${String(cents).padStart(2,'0')}/100 SOLES`;
 }
 
+// ─── WhatsApp / QR helpers ─────────────────────────────────────────────────────
+const waLink = (numero: string) => {
+  const digitos = numero.replace(/\D/g, '');
+  const conCodigo = digitos.startsWith('51') ? digitos : `51${digitos}`;
+  return `https://wa.me/${conCodigo}`;
+};
+
+// Descarga la imagen del QR y la convierte a base64 (jsPDF no acepta URLs directas)
+function cargarImagenComoBase64(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 // ─── Generar PDF ──────────────────────────────────────────────────────────────
-function generarBoletaPDF(detalle: VentaDetalle) {
-  const anchoTicket = 80;
-  const altoTicket  = 160 + (detalle.detalle.length * 14);
+async function generarBoletaPDF(detalle: VentaDetalle, cuentas: CuentaPago[]) {
+  // Separar cuenta WhatsApp del resto
+  const cuentaWhatsapp = cuentas.find(c => c.TipoCuenta === 'WhatsApp');
+  const cuentasPago    = cuentas.filter(c => c.TipoCuenta !== 'WhatsApp');
+  const numeroWhatsapp = cuentaWhatsapp?.NumeroCuenta ?? '999999999';
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(waLink(numeroWhatsapp))}`;
+  const qrBase64 = await cargarImagenComoBase64(qrUrl);
+
+  const anchoTicket   = 80;
+  const alturaCuentas = cuentasPago.length > 0 ? cuentasPago.length * 9 + 10 : 10;
+  const alturaQR      = qrBase64 ? 42 : 10;
+  const altoTicket    = 170 + (detalle.detalle.length * 14) + alturaCuentas + alturaQR;
+
   const doc  = new jsPDF({ unit: 'mm', format: [anchoTicket, altoTicket] });
   const W    = anchoTicket;
   const marL = 5;
@@ -196,19 +241,53 @@ function generarBoletaPDF(detalle: VentaDetalle) {
   doc.setTextColor(80, 0, 120);
   doc.text(detalle.NombreFormaPago, marL, y); y += 8;
 
-  // ── 9. CUENTAS BANCARIAS ──────────────────────────────────────────────────
+  // ── 9. CUENTAS DE PAGO (Yape, Plin, bancos — sin WhatsApp) ────────────────
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(0, 0, 0);
-  doc.text('CUENTAS BANCARIAS', marL, y); y += 5;
+  doc.text('CUENTAS DE PAGO', marL, y); y += 5;
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 0, 120);
-  doc.text('Yape: 999999999',     marL, y); y += 4.5;
-  doc.text('WhatsApp: 999999999', marL, y); y += 9;
+
+  if (cuentasPago.length === 0) {
+    doc.text('Sin cuentas registradas', marL, y); y += 4.5;
+  } else {
+    cuentasPago.forEach(cta => {
+      doc.text(`${cta.TipoCuenta}: ${cta.Titular} — ${cta.NumeroCuenta}`, marL, y);
+      y += 4.5;
+      if (cta.CCI) {
+        doc.setFontSize(6.5);
+        doc.text(`   CCI: ${cta.CCI}`, marL, y);
+        doc.setFontSize(7.5);
+        y += 4.5;
+      }
+    });
+  }
+  y += 4;
   lineaH();
 
-  // ── 10. PIE ───────────────────────────────────────────────────────────────
+  // ── 10. WHATSAPP CON QR ───────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('ESCRÍBENOS POR WHATSAPP', W / 2, y, { align: 'center' }); y += 6;
+
+  if (qrBase64) {
+    const qrSize = 30;
+    const qrX = (W - qrSize) / 2;
+    doc.addImage(qrBase64, 'PNG', qrX, y, qrSize, qrSize);
+    y += qrSize + 4;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 0, 120);
+  doc.text(`WhatsApp: ${numeroWhatsapp}`, W / 2, y, { align: 'center' }); y += 9;
+
+  lineaH();
+
+  // ── 11. PIE ───────────────────────────────────────────────────────────────
   const fechaHora = new Date(detalle.FechaVenta).toLocaleString('es-PE');
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
@@ -220,24 +299,38 @@ function generarBoletaPDF(detalle: VentaDetalle) {
 }
 
 
-
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function ComprobantesPage() {
   const [ventas, setVentas]     = useState<Venta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [detalle, setDetalle]   = useState<VentaDetalle | null>(null);
   const [busq, setBusq]         = useState('');
+  const [cuentas, setCuentas]   = useState<CuentaPago[]>([]);
+  const [generando, setGenerando] = useState(false);
 
   useEffect(() => {
     apiFetch<{ ok: boolean; data: Venta[] }>('/ventas')
       .then(r => setVentas(r.data))
       .finally(() => setCargando(false));
+
+    apiFetch<{ ok: boolean; data: CuentaPago[] }>('/cuentas/activas')
+      .then(r => setCuentas(r.data))
+      .catch(() => setCuentas([]));
   }, []);
 
   const abrirDetalle = async (id: number) => {
     const r = await apiFetch<{ ok: boolean; data: VentaDetalle }>(`/ventas/${id}`);
     setDetalle(r.data);
+  };
+
+  const handleImprimir = async () => {
+    if (!detalle) return;
+    setGenerando(true);
+    try {
+      await generarBoletaPDF(detalle, cuentas);
+    } finally {
+      setGenerando(false);
+    }
   };
 
   const filtradas = ventas.filter(v =>
@@ -365,10 +458,10 @@ export default function ComprobantesPage() {
                   className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">
                   Cerrar
                 </button>
-                <button onClick={() => generarBoletaPDF(detalle)}
+                <button onClick={handleImprimir} disabled={generando}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm
-                             bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-medium">
-                  <Printer size={15} /> Imprimir boleta
+                             bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-medium disabled:opacity-50">
+                  <Printer size={15} /> {generando ? 'Generando...' : 'Imprimir boleta'}
                 </button>
               </div>
             </div>

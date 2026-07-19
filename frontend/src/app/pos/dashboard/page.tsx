@@ -21,6 +21,8 @@ interface DashboardData {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+const LIMA_TZ = 'America/Lima';
+
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n);
 
@@ -29,15 +31,15 @@ const pct = (a: number, b: number) => {
   return ((a - b) / b) * 100;
 };
 
-//  FIX: fecha display en hora Lima
 const fechaLima = () =>
-  new Date(Date.now() - 5 * 60 * 60 * 1000)
-    .toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  new Date().toLocaleDateString('es-PE', {
+    timeZone: LIMA_TZ, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
 
-// FIX: hora de última venta en Lima
 const horaLima = (iso: string) =>
-  new Date(new Date(iso).getTime())
-    .toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  new Date(iso).toLocaleTimeString('es-PE', {
+    timeZone: LIMA_TZ, hour: '2-digit', minute: '2-digit',
+  });
 
 const COLORS = ['#6366f1', '#22d3ee', '#f59e0b', '#10b981', '#f43f5e'];
 
@@ -51,6 +53,7 @@ function KpiCard({ titulo, valor, sub, color = 'indigo', icon }: {
     red:    'bg-rose-50 border-rose-200 text-rose-700',
     amber:  'bg-amber-50 border-amber-200 text-amber-700',
     cyan:   'bg-cyan-50 border-cyan-200 text-cyan-700',
+    gray:   'bg-gray-50 border-gray-200 text-gray-700',
   };
   return (
     <div className={`rounded-2xl border p-5 flex flex-col gap-2 ${colores[color]}`}>
@@ -79,6 +82,7 @@ export default function DashboardPage() {
   const [data, setData]         = useState<DashboardData | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError]       = useState('');
+  const [horaFin, setHoraFin]   = useState(22);
 
   const cargar = async () => {
     setCargando(true);
@@ -93,7 +97,19 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => { cargar(); }, []);
+  useEffect(() => {
+    cargar();
+    // Calcular hora Lima solo en el cliente (browser)
+    const horaActual = Number(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Lima',
+        hour: 'numeric',
+        hour12: false,
+      }).format(new Date())
+    );
+    setHoraFin(Math.max(horaActual + 1, 22));
+  }, []);
+
   useEffect(() => {
     const interval = setInterval(cargar, 120_000);
     return () => clearInterval(interval);
@@ -123,21 +139,16 @@ export default function DashboardPage() {
   const difHoy = pct(data.hoy.MontoTotal, data.ayer.MontoTotal);
   const difSem = pct(data.semanas.esta.Monto, data.semanas.anterior.Monto);
 
-  //  FIX: rango de horas basado en hora Lima actual
-  const horaActualLima = new Date(Date.now() - 5 * 60 * 60 * 1000).getUTCHours();
-  const horaFin        = Math.max(horaActualLima + 1, 17);
-  const horaInicio     = 7;
-
+  const horaInicio = 7;
   const horasCompletas = Array.from({ length: horaFin - horaInicio }, (_, i) => {
     const h     = i + horaInicio;
-    const found = data.porHora.find(x => Number(x.Hora) === h); //  fix
+    const found = data.porHora.find(x => Number(x.Hora) === h);
     return {
       hora:     `${String(h).padStart(2, '0')}:00`,
       Monto:    found?.Monto    ?? 0,
       Cantidad: found?.Cantidad ?? 0,
     };
   });
-
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
@@ -146,7 +157,6 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Dashboard POS</h1>
-          {/*  FIX: fecha en hora Lima */}
           <p className="text-sm text-gray-500 mt-0.5">{fechaLima()}</p>
         </div>
         <button onClick={cargar}
@@ -316,11 +326,10 @@ export default function DashboardPage() {
             {data.miTurno.ultimaVenta ? (
               <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
                 <p className="font-semibold text-gray-700">Última venta</p>
-                <p> {data.miTurno.ultimaVenta.NumeroBoleta}</p>
-                <p> {data.miTurno.ultimaVenta.Cliente}</p>
-                <p> {fmt(data.miTurno.ultimaVenta.Total)}</p>
-                {/*  FIX: hora de última venta en Lima */}
-                <p> {horaLima(data.miTurno.ultimaVenta.FechaVenta)}</p>
+                <p>{data.miTurno.ultimaVenta.NumeroBoleta}</p>
+                <p>{data.miTurno.ultimaVenta.Cliente}</p>
+                <p>{fmt(data.miTurno.ultimaVenta.Total)}</p>
+                <p>{horaLima(data.miTurno.ultimaVenta.FechaVenta)}</p>
               </div>
             ) : (
               <p className="text-xs text-gray-400 text-center">Sin ventas registradas aún</p>
@@ -330,16 +339,16 @@ export default function DashboardPage() {
 
         <SectionCard title="Esta semana vs anterior" icon="">
           <div className="space-y-4">
-            {[
-              { label: 'Esta semana',    data: data.semanas.esta,     color: 'indigo' },
-              { label: 'Semana anterior', data: data.semanas.anterior, color: 'gray'   },
-            ].map(({ label, data: d, color }) => (
-              <div key={label}>
-                <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <p className={`text-xl font-bold text-${color}-700`}>{fmt(d.Monto)}</p>
-                <p className="text-xs text-gray-400">{d.Ventas} ventas</p>
-              </div>
-            ))}
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Esta semana</p>
+              <p className="text-xl font-bold text-indigo-700">{fmt(data.semanas.esta.Monto)}</p>
+              <p className="text-xs text-gray-400">{data.semanas.esta.Ventas} ventas</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Semana anterior</p>
+              <p className="text-xl font-bold text-gray-700">{fmt(data.semanas.anterior.Monto)}</p>
+              <p className="text-xs text-gray-400">{data.semanas.anterior.Ventas} ventas</p>
+            </div>
             {difSem !== null && (
               <div className={`text-sm font-semibold ${difSem >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                 {difSem >= 0 ? '▲' : '▼'} {Math.abs(difSem).toFixed(1)}% vs semana anterior
@@ -351,4 +360,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
+} 

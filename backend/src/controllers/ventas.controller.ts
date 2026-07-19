@@ -92,8 +92,11 @@ export const dashboard = async (req: Request, res: Response) => {
 export const generarBoleta = async (req: Request, res: Response) => {
   try {
     const { generarBoletaPDF } = await import('../utils/boleta.generator');
+    const { listarCuentasActivas } = await import('../services/cuentas.service');
+
     const venta   = await service.obtenerVenta(Number(req.params.id));
     const tipo    = (req.query.tipo as string ?? 'BOLETA').toUpperCase() as 'BOLETA' | 'FACTURA';
+    const cuentas = await listarCuentasActivas();
 
     const buffer = await generarBoletaPDF({
       NumeroBoleta:    venta.NumeroBoleta,
@@ -109,6 +112,7 @@ export const generarBoleta = async (req: Request, res: Response) => {
       Descuento:       venta.Descuento,
       Total:           venta.Total,
       detalle:         venta.detalle,
+      cuentas,
     });
 
     res.setHeader('Content-Type', 'application/pdf');
