@@ -201,6 +201,18 @@ CREATE TABLE Caja(
     FOREIGN KEY (IdUsuario) REFERENCES Usuarios(IdUsuario)
 );
 
+
+CREATE TABLE cuentaspago (
+  IdCuenta      INT PRIMARY KEY AUTO_INCREMENT,
+  TipoCuenta    VARCHAR(30)  NOT NULL,      -- 'Yape', 'Plin', 'BCP', 'BBVA', 'Interbank', 'Otro'
+  Titular       VARCHAR(150) NOT NULL,
+  NumeroCuenta  VARCHAR(50)  NOT NULL,      -- celular (Yape/Plin) o N° de cuenta bancaria
+  CCI           VARCHAR(50)  NULL,          -- opcional, para transferencias interbancarias
+  Estado        TINYINT(1)   DEFAULT 1,
+  FechaRegistro DATETIME     DEFAULT CURRENT_TIMESTAMP
+);
+
+
 INSERT INTO Roles (NombreRol) VALUES ('Administrador');
 INSERT INTO Usuarios
 (IdRol, Nombres, Apellidos, Correo, Usuario, Clave, Telefono, Estado)

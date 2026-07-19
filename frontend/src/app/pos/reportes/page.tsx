@@ -25,6 +25,7 @@ const limaHace7= () => new Date(Date.now() - 5 * 60 * 60 * 1000 - 7 * 86400000).
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: 'dia',        label: 'Ventas del Día',  icon: Calendar   },
   { key: 'turnos',     label: 'Por Turno',        icon: BarChart2  },
+  { key: 'vendedor',   label: 'Por Vendedor',     icon: Users      },
   { key: 'clientes',   label: 'Clientes',         icon: Users      },
   { key: 'formaspago', label: 'Formas de Pago',   icon: CreditCard },
   { key: 'inventario', label: 'Inventario',       icon: Package    },

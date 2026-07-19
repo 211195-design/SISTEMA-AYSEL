@@ -84,11 +84,11 @@ export const getNextCodigo = async () => {
   const [rows]: any = await pool.query(
     `SELECT Codigo FROM productos WHERE Codigo IS NOT NULL ORDER BY IdProducto DESC LIMIT 1`
   );
-  if (rows.length === 0) return 'P001';
-  const last = rows[0].Codigo ?? 'P000';
+  if (rows.length === 0) return 'PRD00001';
+  const last = rows[0].Codigo ?? 'PRD00000';
   const num  = parseInt(last.replace(/[^0-9]/g, ''), 10);
-  if (isNaN(num)) return 'P001';
-  return `P${String(num + 1).padStart(3, '0')}`;
+  if (isNaN(num)) return 'PRD00001';
+  return `PRD${String(num + 1).padStart(5, '0')}`;
 };
 
 export const createProductoConInventario = async (data: {
