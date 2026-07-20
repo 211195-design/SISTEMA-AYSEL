@@ -14,13 +14,16 @@ import configuracionRoutes from './routes/configuracion.routes';
 import promocionesRoutes from './routes/promociones.routes';
 import cuentasRoutes from './routes/cuentas.routes';
 
-
 dotenv.config();
 
 const app = express();
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'https://sistema-aysel.vercel.app',
+    /\.vercel\.app$/
+  ],
   credentials: true,
 }));
 app.use(express.json());
@@ -37,7 +40,6 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/configuracion', configuracionRoutes);
 app.use('/api/promociones', promocionesRoutes);
 app.use('/api/cuentas', cuentasRoutes);
-
 
 app.get('/api/health', (req, res) => {
   res.json({ message: 'BACKEND FUNCIONADO ' });
