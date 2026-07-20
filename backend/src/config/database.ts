@@ -4,13 +4,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
+  host    : process.env.MYSQL_ADDON_HOST     || process.env.DB_HOST     || 'localhost',
+  user    : process.env.MYSQL_ADDON_USER     || process.env.DB_USER     || 'root',
+  password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASS     || '',
+  database: process.env.MYSQL_ADDON_DB       || process.env.DB_NAME     || 'BD_TIENDA_AYSEL',
+  port    : Number(process.env.MYSQL_ADDON_PORT) || 3306,
   waitForConnections: true,
-  connectionLimit: 10,
-  timezone: '-05:00',
+  connectionLimit   : 10,
+  timezone          : '-05:00',
 });
 
 export default db;
