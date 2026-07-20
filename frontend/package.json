@@ -1,4 +1,6 @@
 {
+  "name": "sistema-aysel-frontend",
+  "version": "0.1.0",
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@tailwindcss/postcss": "^4.3.1",
