@@ -1,10 +1,7 @@
 
 
-CREATE DATABASE IF NOT EXISTS BD_TIENDA_AYSEL;
-USE BD_TIENDA_AYSEL;
 
-DESCRIBE Usuarios;
-DESCRIBE Roles;
+
 
 -- ==========================
 -- TABLA ROLES

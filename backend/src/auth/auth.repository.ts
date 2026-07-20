@@ -1,4 +1,4 @@
-import db from '../../database/connection';
+import db from '../database/connection';
 import { UsuarioAuth } from './auth.types';
 
 export const buscarPorUsuario = (usuario: string): Promise<UsuarioAuth | undefined> =>
